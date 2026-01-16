@@ -1,0 +1,18 @@
+langchain==0.1.14
+langchain-openai==0.1.1
+langchain-community>=0.0.30
+pydantic==2.5.3
+python-dotenv==1.0.0
+
+# Raspberry Pi GPIO (only needed on Pi hardware)
+# Uncomment for hardware deployment:
+# RPi.GPIO>=0.7.1
+
+# Vision (optional - install when needed)
+# picamera2  # Pi Camera 3 support
+# ultralytics  # YOLO object detection
+# opencv-python  # Computer vision
+
+# Hailo AI HAT+ (optional - for local AI inference on Pi 5)
+# hailort
+# hailo_model_zoo
