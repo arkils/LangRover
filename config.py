@@ -24,12 +24,16 @@ class Config:
     HAILO_MAX_TOKENS: int = int(os.getenv("HAILO_MAX_TOKENS", "100"))
     HAILO_TEMPERATURE: float = float(os.getenv("HAILO_TEMPERATURE", "0.7"))
 
-    # Hardware Settings (Raspberry Pi 5)
+    # Hardware Settings (Raspberry Pi 5 + ESP32)
     USE_GPIO_ACTIONS: bool = os.getenv("USE_GPIO_ACTIONS", "false").lower() == "true"
     USE_REAL_SENSORS: bool = os.getenv("USE_REAL_SENSORS", "false").lower() == "true"
     USE_REAL_CAMERA: bool = os.getenv("USE_REAL_CAMERA", "false").lower() == "true"
     USE_REAL_VISION: bool = os.getenv("USE_REAL_VISION", "false").lower() == "true"
     YOLO_MODEL: str = os.getenv("YOLO_MODEL", "nano")  # nano, small, medium, large
+    
+    # ESP32 Serial Communication Settings
+    ESP32_SERIAL_PORT: str = os.getenv("ESP32_SERIAL_PORT", "/dev/ttyACM0")  # COM3 on Windows
+    ESP32_BAUDRATE: int = int(os.getenv("ESP32_BAUDRATE", "115200"))
     
     # Motor Settings
     DEFAULT_MOTOR_SPEED: int = int(os.getenv("DEFAULT_MOTOR_SPEED", "70"))  # 0-100%

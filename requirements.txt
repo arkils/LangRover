@@ -4,9 +4,12 @@ langchain-community>=0.0.30
 pydantic==2.5.3
 python-dotenv==1.0.0
 
-# Raspberry Pi GPIO (only needed on Pi hardware)
-# Uncomment for hardware deployment:
-# RPi.GPIO>=0.7.1
+# Serial Communication with ESP32 (required for hardware)
+pyserial>=3.5
+
+# Raspberry Pi GPIO (NOT needed - ESP32 handles GPIO)
+# RPi.GPIO is no longer used in this architecture
+# The ESP32 microcontroller handles all GPIO operations
 
 # Vision (optional - install when needed)
 # picamera2  # Pi Camera 3 support

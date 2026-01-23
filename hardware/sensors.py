@@ -1,164 +1,78 @@
 """
-Ultrasonic Sensor Driver for HC-SR04 sensors on Raspberry Pi 5
+Ultrasonic Sensor Interface for LangRover - ESP32 Communication
 
-Supports 4 ultrasonic sensors for distance measurement:
-- Front sensor
-- Left sensor
-- Right sensor
-- Rear sensor
+The Raspberry Pi requests sensor readings from an ESP32 microcontroller via USB CDC serial.
+The ESP32 reads the actual ultrasonic sensors (HC-SR04) and returns distance values.
+
+Architecture:
+    Raspberry Pi → USB Serial → ESP32 → HC-SR04 Ultrasonic Sensors
 """
 
 import time
-from typing import Optional
-
-try:
-    import RPi.GPIO as GPIO  # type: ignore
-    GPIO_AVAILABLE = True
-except ImportError:
-    GPIO_AVAILABLE = False
-    print("[WARNING] RPi.GPIO not available. Using simulated sensors.")
-
-from hardware.pins import PINS, UltrasonicPins
-
-
-class UltrasonicSensor:
-    """
-    HC-SR04 Ultrasonic Distance Sensor driver.
-    
-    Measures distance by sending ultrasonic pulse and measuring echo time.
-    """
-    
-    def __init__(self, trigger_pin: int, echo_pin: int, name: str = "Sensor"):
-        """
-        Initialize ultrasonic sensor.
-        
-        Args:
-            trigger_pin: GPIO pin for trigger signal
-            echo_pin: GPIO pin for echo signal
-            name: Human-readable name for the sensor
-        """
-        self.trigger_pin = trigger_pin
-        self.echo_pin = echo_pin
-        self.name = name
-        self.available = False
-        
-        if GPIO_AVAILABLE:
-            self._initialize_gpio()
-    
-    def _initialize_gpio(self):
-        """Initialize GPIO pins for sensor."""
-        try:
-            # Set trigger as output, echo as input
-            GPIO.setup(self.trigger_pin, GPIO.OUT)
-            GPIO.setup(self.echo_pin, GPIO.IN)
-            
-            # Ensure trigger is low initially
-            GPIO.output(self.trigger_pin, GPIO.LOW)
-            time.sleep(0.1)
-            
-            self.available = True
-            print(f"[SENSOR] {self.name} initialized (TRIG: GPIO{self.trigger_pin}, ECHO: GPIO{self.echo_pin})")
-        except Exception as e:
-            print(f"[ERROR] Failed to initialize {self.name}: {e}")
-            self.available = False
-    
-    def measure_distance(self, timeout: float = 0.5) -> Optional[float]:
-        """
-        Measure distance in centimeters.
-        
-        Args:
-            timeout: Maximum time to wait for echo (seconds)
-            
-        Returns:
-            Distance in centimeters, or None if measurement failed
-        """
-        if not self.available:
-            return None
-        
-        try:
-            # Send 10us pulse on trigger
-            GPIO.output(self.trigger_pin, GPIO.HIGH)
-            time.sleep(0.00001)  # 10 microseconds
-            GPIO.output(self.trigger_pin, GPIO.LOW)
-            
-            # Wait for echo to start
-            pulse_start = time.time()
-            timeout_start = pulse_start
-            while GPIO.input(self.echo_pin) == GPIO.LOW:
-                pulse_start = time.time()
-                if pulse_start - timeout_start > timeout:
-                    return None  # Timeout
-            
-            # Wait for echo to end
-            pulse_end = time.time()
-            timeout_start = pulse_end
-            while GPIO.input(self.echo_pin) == GPIO.HIGH:
-                pulse_end = time.time()
-                if pulse_end - timeout_start > timeout:
-                    return None  # Timeout
-            
-            # Calculate distance
-            # Speed of sound: 343 m/s = 34300 cm/s
-            # Distance = (Time × Speed) / 2 (round trip)
-            pulse_duration = pulse_end - pulse_start
-            distance = (pulse_duration * 34300) / 2
-            
-            # Filter unrealistic values (0-400cm for HC-SR04)
-            if 2 <= distance <= 400:
-                return round(distance, 2)
-            else:
-                return None
-                
-        except Exception as e:
-            print(f"[ERROR] {self.name} measurement failed: {e}")
-            return None
-    
-    def cleanup(self):
-        """Cleanup GPIO resources."""
-        if self.available and GPIO_AVAILABLE:
-            GPIO.cleanup([self.trigger_pin, self.echo_pin])
+from typing import Optional, Dict
+from hardware.esp32_serial import get_esp32
 
 
 class SensorArray:
     """
-    Manages all 4 ultrasonic sensors for the robot.
+    Manages all 4 ultrasonic sensors via ESP32 communication.
     
     Provides easy access to front, left, right, and rear distance measurements.
+    Sensors are physically connected to ESP32, which handles the low-level reading.
     """
     
-    def __init__(self):
-        """Initialize all 4 ultrasonic sensors."""
-        if GPIO_AVAILABLE:
-            GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
+    def __init__(self, serial_port: str = "/dev/ttyACM0", baudrate: int = 115200):
+        """
+        Initialize sensor array with ESP32 connection.
         
-        # Initialize sensors with configured pins
-        self.front = UltrasonicSensor(
-            PINS.ultrasonic_front.trigger,
-            PINS.ultrasonic_front.echo,
-            "Front Sensor"
-        )
+        Args:
+            serial_port: USB serial port for ESP32 (e.g., /dev/ttyACM0, COM3)
+            baudrate: Serial communication speed (default 115200)
+        """
+        self.esp32 = get_esp32(port=serial_port, baudrate=baudrate)
         
-        self.left = UltrasonicSensor(
-            PINS.ultrasonic_left.trigger,
-            PINS.ultrasonic_left.echo,
-            "Left Sensor"
-        )
-        
-        self.right = UltrasonicSensor(
-            PINS.ultrasonic_right.trigger,
-            PINS.ultrasonic_right.echo,
-            "Right Sensor"
-        )
-        
-        self.rear = UltrasonicSensor(
-            PINS.ultrasonic_rear.trigger,
-            PINS.ultrasonic_rear.echo,
-            "Rear Sensor"
-        )
-        
-        print("[SENSORS] Sensor array initialized")
+        if self.esp32.is_available():
+            print("[SENSORS] Sensor array initialized via ESP32")
+        else:
+            print("[WARNING] ESP32 not available - sensor readings will return None")
     
-    def read_all(self) -> dict:
+    def read_front(self) -> Optional[float]:
+        """
+        Read front ultrasonic sensor.
+        
+        Returns:
+            Distance in centimeters, or None if unavailable
+        """
+        return self.esp32.read_ultrasonic("front")
+    
+    def read_left(self) -> Optional[float]:
+        """
+        Read left ultrasonic sensor.
+        
+        Returns:
+            Distance in centimeters, or None if unavailable
+        """
+        return self.esp32.read_ultrasonic("left")
+    
+    def read_right(self) -> Optional[float]:
+        """
+        Read right ultrasonic sensor.
+        
+        Returns:
+            Distance in centimeters, or None if unavailable
+        """
+        return self.esp32.read_ultrasonic("right")
+    
+    def read_rear(self) -> Optional[float]:
+        """
+        Read rear ultrasonic sensor.
+        
+        Returns:
+            Distance in centimeters, or None if unavailable
+        """
+        return self.esp32.read_ultrasonic("rear")
+    
+    def read_all(self) -> Dict[str, Optional[float]]:
         """
         Read all sensors and return distances.
         
@@ -167,27 +81,20 @@ class SensorArray:
             Values are distances in cm, or None if unavailable
         """
         return {
-            "front": self.front.measure_distance(),
-            "left": self.left.measure_distance(),
-            "right": self.right.measure_distance(),
-            "rear": self.rear.measure_distance(),
+            "front": self.read_front(),
+            "left": self.read_left(),
+            "right": self.read_right(),
+            "rear": self.read_rear(),
         }
     
     def is_available(self) -> bool:
-        """Check if any sensors are available."""
-        return (self.front.available or self.left.available or 
-                self.right.available or self.rear.available)
+        """Check if ESP32 connection is available."""
+        return self.esp32.is_available()
     
     def cleanup(self):
-        """Cleanup all sensor GPIO resources."""
+        """Cleanup ESP32 connection."""
         print("[SENSORS] Cleaning up sensor array...")
-        self.front.cleanup()
-        self.left.cleanup()
-        self.right.cleanup()
-        self.rear.cleanup()
-        
-        if GPIO_AVAILABLE:
-            GPIO.cleanup()
+        self.esp32.cleanup()
 
 
 def test_sensors():

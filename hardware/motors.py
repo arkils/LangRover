@@ -1,170 +1,39 @@
 """
-L293D Motor Controller Driver for 4-wheel robot on Raspberry Pi 5
+Motor Controller for LangRover - ESP32 Communication Interface
 
-Controls 4 DC motors using 2 L293D motor driver chips:
-- Motor Controller 1: Front left and front right motors
-- Motor Controller 2: Rear left and rear right motors
+The Raspberry Pi communicates with an ESP32 microcontroller via USB CDC serial.
+The ESP32 controls the actual motor hardware (TB6612FNG drivers and DC motors).
+
+Architecture:
+    Raspberry Pi → USB Serial → ESP32 → TB6612FNG Motor Drivers → DC Motors
 """
 
 import time
-from typing import Literal
-
-try:
-    import RPi.GPIO as GPIO  # type: ignore
-    GPIO_AVAILABLE = True
-except ImportError:
-    GPIO_AVAILABLE = False
-    print("[WARNING] RPi.GPIO not available. Using simulated motors.")
-
-from hardware.pins import PINS, MotorPins
-
-
-class Motor:
-    """
-    Single DC motor controlled by L293D motor driver.
-    
-    Controls direction (forward/backward) and speed (PWM).
-    """
-    
-    def __init__(self, in1: int, in2: int, enable: int, name: str = "Motor"):
-        """
-        Initialize motor.
-        
-        Args:
-            in1: GPIO pin for IN1 (direction control)
-            in2: GPIO pin for IN2 (direction control)
-            enable: GPIO pin for EN (PWM speed control)
-            name: Human-readable name for the motor
-        """
-        self.in1 = in1
-        self.in2 = in2
-        self.enable = enable
-        self.name = name
-        self.pwm = None
-        self.available = False
-        
-        if GPIO_AVAILABLE:
-            self._initialize_gpio()
-    
-    def _initialize_gpio(self):
-        """Initialize GPIO pins for motor control."""
-        try:
-            # Set direction pins as outputs
-            GPIO.setup(self.in1, GPIO.OUT)
-            GPIO.setup(self.in2, GPIO.OUT)
-            GPIO.setup(self.enable, GPIO.OUT)
-            
-            # Initialize PWM on enable pin (1000 Hz frequency)
-            self.pwm = GPIO.PWM(self.enable, 1000)
-            self.pwm.start(0)  # Start with 0% duty cycle (stopped)
-            
-            self.available = True
-            print(f"[MOTOR] {self.name} initialized (IN1: GPIO{self.in1}, IN2: GPIO{self.in2}, EN: GPIO{self.enable})")
-        except Exception as e:
-            print(f"[ERROR] Failed to initialize {self.name}: {e}")
-            self.available = False
-    
-    def forward(self, speed: int = 100):
-        """
-        Rotate motor forward.
-        
-        Args:
-            speed: Speed percentage (0-100)
-        """
-        if not self.available:
-            return
-        
-        speed = max(0, min(100, speed))  # Clamp to 0-100
-        
-        try:
-            GPIO.output(self.in1, GPIO.HIGH)
-            GPIO.output(self.in2, GPIO.LOW)
-            self.pwm.ChangeDutyCycle(speed)
-        except Exception as e:
-            print(f"[ERROR] {self.name} forward failed: {e}")
-    
-    def backward(self, speed: int = 100):
-        """
-        Rotate motor backward.
-        
-        Args:
-            speed: Speed percentage (0-100)
-        """
-        if not self.available:
-            return
-        
-        speed = max(0, min(100, speed))  # Clamp to 0-100
-        
-        try:
-            GPIO.output(self.in1, GPIO.LOW)
-            GPIO.output(self.in2, GPIO.HIGH)
-            self.pwm.ChangeDutyCycle(speed)
-        except Exception as e:
-            print(f"[ERROR] {self.name} backward failed: {e}")
-    
-    def stop(self):
-        """Stop the motor."""
-        if not self.available:
-            return
-        
-        try:
-            GPIO.output(self.in1, GPIO.LOW)
-            GPIO.output(self.in2, GPIO.LOW)
-            self.pwm.ChangeDutyCycle(0)
-        except Exception as e:
-            print(f"[ERROR] {self.name} stop failed: {e}")
-    
-    def cleanup(self):
-        """Cleanup GPIO resources."""
-        if self.available and GPIO_AVAILABLE:
-            self.stop()
-            if self.pwm:
-                self.pwm.stop()
-            GPIO.cleanup([self.in1, self.in2, self.enable])
+from hardware.esp32_serial import get_esp32
 
 
 class MotorController:
     """
-    4-wheel robot motor controller using 2 L293D chips.
+    4-wheel robot motor controller communicating via ESP32.
     
     Provides high-level movement commands: forward, backward, turn left, turn right, stop.
+    Commands are sent to ESP32 via USB serial, which controls the actual motor hardware.
     """
     
-    def __init__(self):
-        """Initialize all 4 motors."""
-        if GPIO_AVAILABLE:
-            GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
+    def __init__(self, serial_port: str = "/dev/ttyACM0", baudrate: int = 115200):
+        """
+        Initialize motor controller with ESP32 connection.
         
-        # Initialize motors with configured pins
-        self.front_left = Motor(
-            PINS.motor_front_left.in1,
-            PINS.motor_front_left.in2,
-            PINS.motor_front_left.enable,
-            "Front Left Motor"
-        )
+        Args:
+            serial_port: USB serial port for ESP32 (e.g., /dev/ttyACM0, COM3)
+            baudrate: Serial communication speed (default 115200)
+        """
+        self.esp32 = get_esp32(port=serial_port, baudrate=baudrate)
         
-        self.front_right = Motor(
-            PINS.motor_front_right.in1,
-            PINS.motor_front_right.in2,
-            PINS.motor_front_right.enable,
-            "Front Right Motor"
-        )
-        
-        self.rear_left = Motor(
-            PINS.motor_rear_left.in1,
-            PINS.motor_rear_left.in2,
-            PINS.motor_rear_left.enable,
-            "Rear Left Motor"
-        )
-        
-        self.rear_right = Motor(
-            PINS.motor_rear_right.in1,
-            PINS.motor_rear_right.in2,
-            PINS.motor_rear_right.enable,
-            "Rear Right Motor"
-        )
-        
-        print("[MOTORS] Motor controller initialized")
+        if self.esp32.is_available():
+            print("[MOTORS] Motor controller initialized via ESP32")
+        else:
+            print("[WARNING] ESP32 not available - motor commands will be ignored")
     
     def move_forward(self, speed: int = 70, duration: float = 0):
         """
@@ -175,14 +44,11 @@ class MotorController:
             duration: Duration in seconds (0 = continuous)
         """
         print(f"[MOTORS] Moving forward at {speed}% speed")
-        self.front_left.forward(speed)
-        self.front_right.forward(speed)
-        self.rear_left.forward(speed)
-        self.rear_right.forward(speed)
         
         if duration > 0:
-            time.sleep(duration)
-            self.stop()
+            self.esp32.motor_forward(speed=speed, duration=duration)
+        else:
+            self.esp32.motor_forward(speed=speed)
     
     def move_backward(self, speed: int = 70, duration: float = 0):
         """
@@ -193,75 +59,56 @@ class MotorController:
             duration: Duration in seconds (0 = continuous)
         """
         print(f"[MOTORS] Moving backward at {speed}% speed")
-        self.front_left.backward(speed)
-        self.front_right.backward(speed)
-        self.rear_left.backward(speed)
-        self.rear_right.backward(speed)
         
         if duration > 0:
-            time.sleep(duration)
-            self.stop()
+            self.esp32.motor_backward(speed=speed, duration=duration)
+        else:
+            self.esp32.motor_backward(speed=speed)
     
     def turn_left(self, speed: int = 70, duration: float = 0):
         """
-        Turn robot left (left motors backward, right motors forward).
+        Turn robot left.
         
         Args:
             speed: Speed percentage (0-100)
             duration: Duration in seconds (0 = continuous)
         """
         print(f"[MOTORS] Turning left at {speed}% speed")
-        self.front_left.backward(speed)
-        self.front_right.forward(speed)
-        self.rear_left.backward(speed)
-        self.rear_right.forward(speed)
         
         if duration > 0:
-            time.sleep(duration)
-            self.stop()
+            self.esp32.motor_turn_left(speed=speed, duration=duration)
+        else:
+            self.esp32.motor_turn_left(speed=speed)
     
     def turn_right(self, speed: int = 70, duration: float = 0):
         """
-        Turn robot right (right motors backward, left motors forward).
+        Turn robot right.
         
         Args:
             speed: Speed percentage (0-100)
             duration: Duration in seconds (0 = continuous)
         """
         print(f"[MOTORS] Turning right at {speed}% speed")
-        self.front_left.forward(speed)
-        self.front_right.backward(speed)
-        self.rear_left.forward(speed)
-        self.rear_right.backward(speed)
         
         if duration > 0:
-            time.sleep(duration)
-            self.stop()
+            self.esp32.motor_turn_right(speed=speed, duration=duration)
+        else:
+            self.esp32.motor_turn_right(speed=speed)
     
     def stop(self):
         """Stop all motors."""
         print("[MOTORS] Stopping all motors")
-        self.front_left.stop()
-        self.front_right.stop()
-        self.rear_left.stop()
-        self.rear_right.stop()
+        self.esp32.motor_stop()
     
     def is_available(self) -> bool:
-        """Check if motors are available."""
-        return (self.front_left.available or self.front_right.available or
-                self.rear_left.available or self.rear_right.available)
+        """Check if ESP32 connection is available."""
+        return self.esp32.is_available()
     
     def cleanup(self):
-        """Cleanup all motor GPIO resources."""
+        """Cleanup ESP32 connection."""
         print("[MOTORS] Cleaning up motor controller...")
         self.stop()
-        self.front_left.cleanup()
-        self.front_right.cleanup()
-        self.rear_left.cleanup()
-        self.rear_right.cleanup()
-        
-        if GPIO_AVAILABLE:
-            GPIO.cleanup()
+        self.esp32.cleanup()
 
 
 def test_motors():

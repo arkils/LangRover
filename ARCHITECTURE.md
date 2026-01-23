@@ -1,5 +1,26 @@
 # LangRover System Architecture
 
+## Hardware Architecture Overview
+
+**NEW: ESP32-Based Architecture**
+
+The system now uses a 3-tier architecture:
+
+1. **Raspberry Pi 5** - High-level intelligence (LLM, vision processing, decision making)
+2. **ESP32 Microcontroller** - Low-level hardware control (motors, sensors)
+3. **Robotic Hardware** - Motors (L293D drivers) and Sensors (HC-SR04 ultrasonic)
+
+**Communication Flow:**
+```
+Raspberry Pi 5 ←→ USB Serial (CDC) ←→ ESP32 ←→ GPIO ←→ Motors/Sensors
+```
+
+**Why ESP32?**
+- **Real-time control**: ESP32 handles time-critical sensor readings and motor control
+- **Isolation**: Protects Raspberry Pi from electrical noise and hardware failures
+- **Reliability**: ESP32 can continue safety operations even if Pi crashes
+- **Simplicity**: Clean serial protocol reduces Pi GPIO complexity
+
 ## System Overview Diagram
 
 ```
@@ -226,6 +247,65 @@ Execute     Consult LLM
 STOP        for decision
 ```
 
+## ESP32 Communication Protocol
+
+The Raspberry Pi and ESP32 communicate via USB CDC serial using a JSON-based protocol:
+
+### Commands (Pi → ESP32)
+
+**Motor Control:**
+```json
+{"cmd": "motor", "action": "forward", "speed": 70, "duration": 1.5}
+{"cmd": "motor", "action": "backward", "speed": 70, "duration": 1.5}
+{"cmd": "motor", "action": "turn_left", "speed": 70, "duration": 0.5}
+{"cmd": "motor", "action": "turn_right", "speed": 70, "duration": 0.5}
+{"cmd": "motor", "action": "stop"}
+```
+
+**Sensor Reading:**
+```json
+{"cmd": "sensor", "type": "ultrasonic", "id": "front"}
+{"cmd": "sensor", "type": "ultrasonic", "id": "left"}
+{"cmd": "sensor", "type": "ultrasonic", "id": "right"}
+{"cmd": "sensor", "type": "ultrasonic", "id": "rear"}
+```
+
+**Ping:**
+```json
+{"cmd": "ping"}
+```
+
+### Responses (ESP32 → Pi)
+
+**Acknowledgment:**
+```json
+{"type": "ack", "status": "ok"}
+{"type": "ack", "status": "error", "message": "Motor timeout"}
+```
+
+**Sensor Data:**
+```json
+{"type": "sensor", "id": "front", "distance": 45.2}
+```
+
+**Pong:**
+```json
+{"type": "pong"}
+```
+
+**Error:**
+```json
+{"type": "error", "message": "Invalid command"}
+```
+
+### Serial Connection Details
+
+- **Port**: `/dev/ttyACM0` (Linux/Pi), `COM3` (Windows)
+- **Baud Rate**: 115200
+- **Protocol**: USB CDC (Virtual COM Port)
+- **Format**: JSON strings terminated with `\n`
+- **Timeout**: 1-2 seconds for responses
+
 ## Configuration Cascade
 
 ```
@@ -249,24 +329,45 @@ Final Configuration
 Development (Laptop)
 ├─ Mock Camera
 ├─ Mock Vision Detector
+├─ Mock ESP32 (serial not available)
 ├─ Local Ollama
 └─ CLI output
 
          ↓ (same code!)
 
-Production (Raspberry Pi)
+Production (Raspberry Pi + ESP32)
 ├─ Pi Camera 3
 ├─ YOLO Vision Detector
+├─ ESP32 via USB Serial
+│  ├─ L293D Motor Drivers
+│  ├─ 4x DC Motors
+│  └─ 4x HC-SR04 Ultrasonic Sensors
 ├─ Local Ollama (or cloud LLM)
-└─ GPIO/Motor control
+└─ Motor control via ESP32
 
-         ↓ (same code!)
-
-Cloud Deployment
-├─ External camera input
-├─ Cloud vision API
-├─ Cloud LLM (OpenAI)
-└─ HTTP API output
+Hardware Stack:
+┌─────────────────────┐
+│  Raspberry Pi 5     │ (Brain, Vision, LLM)
+│  - Python app       │
+│  - Camera module    │
+│  - Ollama           │
+└─────────┬───────────┘
+          │ USB Serial
+┌─────────┴───────────┐
+│  ESP32              │ (Hardware Controller)
+│  - Arduino code     │
+│  - GPIO control     │
+└─────────┬───────────┘
+          │ GPIO
+┌─────────┴───────────┐
+│  Motor Drivers      │ (L293D x2)
+└─────────┬───────────┘
+          │
+┌─────────┴───────────┐
+│  Motors + Sensors   │
+│  - 4x DC Motors     │
+│  - 4x Ultrasonic    │
+└─────────────────────┘
 ```
 
 ## Module Dependencies

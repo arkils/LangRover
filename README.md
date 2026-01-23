@@ -1,17 +1,45 @@
 # LangRover - Hardware-Agnostic Autonomous Robot Framework
 
-LangRover is a Python framework for building autonomous robots that run on laptops using simulated sensors and can later be ported to real hardware without changing decision-making logic.
+LangRover is a Python framework for building autonomous robots that run on laptops using simulated sensors and can be deployed to real hardware (Raspberry Pi + ESP32) without changing decision-making logic.
 
-## Overview
+## 🎯 Overview
 
 LangRover separates the robot's cognitive layer (LangChain agent) from the hardware layer (motors, sensors, actuators). This allows:
 
 - **Development on laptops** using simulated sensors and CLI output
-- **Easy transition to real hardware** by implementing the `RobotActions` interface
-- **LLM provider flexibility** (OpenAI, local models via Ollama)
-- **Hardware-agnostic decision-making** through abstracted action interfaces
+- **ESP32-based hardware control** for reliable, real-time motor and sensor operations
+- **Easy transition to real hardware** via abstracted interfaces
+- **LLM provider flexibility** (OpenAI, local models via Ollama, on-device with Hailo)
+- **Vision capabilities** with YOLO object detection and people safety features
 
-## Architecture
+## 🏗️ Architecture
+
+### New: ESP32-Based Hardware Architecture
+
+```
+┌──────────────────────────────────────────────────┐
+│  Raspberry Pi 5 - High-Level Intelligence        │
+│  - LangChain Agent (Decision Making)             │
+│  - Vision Processing (YOLO)                      │
+│  - LLM (Ollama/OpenAI/Hailo)                     │
+└───────────────────┬──────────────────────────────┘
+                    │ USB Serial (JSON)
+┌───────────────────┴──────────────────────────────┐
+│  ESP32 - Hardware Control Layer                  │
+│  - Motor Control (L293D drivers)                 │
+│  - Sensor Reading (Ultrasonic)                   │
+│  - Real-time GPIO operations                     │
+└───────────────────┬──────────────────────────────┘
+                    │ GPIO
+┌───────────────────┴──────────────────────────────┐
+│  Robotic Hardware                                │
+│  - 4x DC Motors                                  │
+│  - 4x HC-SR04 Ultrasonic Sensors                 │
+│  - L293D Motor Driver ICs                        │
+└──────────────────────────────────────────────────┘
+```
+
+### Software Architecture
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -25,11 +53,16 @@ LangRover separates the robot's cognitive layer (LangChain agent) from the hardw
 │   (abstract)        │    │ - read_world_    │
 │ - CLIRobotActions   │    │   state()        │
 │   (CLI impl)        │    │ - simulator      │
+│ - GPIORobotActions  │    │                  │
+│   (ESP32 impl)      │    │                  │
 └─────────────────────┘    └──────────────────┘
-         ↓ (prints)              ↓ (random)
-┌─────────────────────────────────────────────┐
-│  Terminal Output / Future: Real Hardware    │
-└─────────────────────────────────────────────┘
+         ↓                       ↓
+┌─────────────────────┐    ┌──────────────────┐
+│ hardware/           │    │ vision/          │
+│ - esp32_serial.py   │    │ - camera.py      │
+│ - motors.py         │    │ - detector.py    │
+│ - sensors.py        │    │ - vision.py      │
+└─────────────────────┘    └──────────────────┘
 ```
 
 ### Modules
@@ -38,16 +71,28 @@ LangRover separates the robot's cognitive layer (LangChain agent) from the hardw
   - `agent.py` - Agent creation and execution loop
   - `prompts.py` - System prompts with constraints and strategy
   
-- **`world/`** - Environment simulation
-  - `state.py` - `WorldState` Pydantic model (sensor readings)
+- **`world/`** - Environment simulation and state management
+  - `state.py` - `WorldState` Pydantic model (sensor readings + vision)
   - `simulator.py` - Simulated sensor data generator
   
 - **`actions/`** - Robot control interface
   - `base.py` - Abstract `RobotActions` interface
   - `cli_actions.py` - CLI implementation (prints actions)
+  - `gpio_actions.py` - Hardware implementation (ESP32 control)
+  
+- **`hardware/`** - ESP32 communication and hardware abstraction
+  - `esp32_serial.py` - USB serial communication with ESP32
+  - `motors.py` - Motor control via ESP32
+  - `sensors.py` - Sensor reading via ESP32
+  - `pins.py` - ESP32 GPIO pin configuration
+  
+- **`vision/`** - Computer vision and object detection
+  - `camera.py` - Camera interface (PiCamera3/Mock)
+  - `detector.py` - Vision detection (YOLO/Mock)
+  - `vision.py` - Vision system integration
   
 - **`models/`** - LLM provider factory
-  - `llm.py` - Centralized LLM instantiation (supports OpenAI, Ollama)
+  - `llm.py` - Centralized LLM instantiation (supports OpenAI, Ollama, Hailo)
   
 - **`config.py`** - Configuration from environment variables
 - **`main.py`** - Main control loop
@@ -398,76 +443,127 @@ python main.py
 
 See [VISION.md](VISION.md) for comprehensive documentation and [VISION_QUICKSTART.md](VISION_QUICKSTART.md) for quick examples.
 
-## Hardware Deployment (Raspberry Pi 5)
+## Hardware Deployment (Raspberry Pi 5 + ESP32)
 
-LangRover supports **real hardware deployment** on Raspberry Pi 5 with GPIO-controlled motors and sensors.
+LangRover supports **real hardware deployment** with ESP32-based motor and sensor control.
 
-### Recommended Hardware
-
-- **Raspberry Pi 5** (4GB or 8GB RAM)
-- **Raspberry Pi AI HAT+** (for local AI inference)
-- **Pi Camera 3** (computer vision)
-- **4× HC-SR04 Ultrasonic Sensors** (distance measurement)
-- **2× L293D Motor Driver ICs** (motor control)
-- **4× DC Motors** (6-12V geared motors)
-- **Robot Chassis** with 4 wheels
-- **Power supplies** (5V for Pi, 6-12V for motors)
-
-### GPIO Pin Assignments
-
-Complete pin mapping for all components:
+### Hardware Architecture
 
 ```
-ULTRASONIC SENSORS:
-  Front:  TRIG=GPIO23, ECHO=GPIO24
-  Left:   TRIG=GPIO17, ECHO=GPIO27
-  Right:  TRIG=GPIO22, ECHO=GPIO10
-  Rear:   TRIG=GPIO9,  ECHO=GPIO11
+Raspberry Pi 5 (Brain)
+    ↓ USB Serial
+ESP32 (Hardware Controller)
+    ↓ GPIO
+Motors & Sensors
+```
 
-MOTOR CONTROLLERS:
-  Front Left:   IN1=GPIO5,  IN2=GPIO6,  EN=GPIO12
-  Front Right:  IN1=GPIO13, IN2=GPIO19, EN=GPIO12
-  Rear Left:    IN1=GPIO16, IN2=GPIO20, EN=GPIO18
-  Rear Right:   IN1=GPIO21, IN2=GPIO26, EN=GPIO18
+The ESP32 provides:
+- ✅ Real-time motor control
+- ✅ Reliable sensor readings
+- ✅ Electrical isolation from Pi
+- ✅ Hardware safety features
+- ✅ Simple JSON communication
+
+### Required Hardware
+
+**Computing:**
+- **Raspberry Pi 5** (4GB or 8GB RAM) - High-level intelligence
+- **ESP32 Development Board** - Hardware controller
+- **Raspberry Pi AI HAT+** (optional - for local AI inference)
+- **Pi Camera 3** (optional - for computer vision)
+
+**Motors & Drivers:**
+- **4× DC Motors** (6-12V geared motors)
+- **2× TB6612FNG Motor Driver Boards** (dual motor drivers, 1.2A per channel)
+- **Robot Chassis** with 4 wheels
+
+**Sensors:**
+- **4× HC-SR04 Ultrasonic Sensors** (distance measurement)
+
+**Power & Connectivity:**
+- **USB Cable** (Pi to ESP32 - must support data)
+- **Power supplies** (5V for Pi/ESP32, 6-12V for motors)
+
+### ESP32 GPIO Pin Assignments
+
+**IMPORTANT**: These are ESP32 GPIO pins, NOT Raspberry Pi pins!
+
+```
+ULTRASONIC SENSORS (ESP32):
+  Front:  TRIG=GPIO23, ECHO=GPIO22
+  Left:   TRIG=GPIO19, ECHO=GPIO18
+  Right:  TRIG=GPIO17, ECHO=GPIO16
+  Rear:   TRIG=GPIO4,  ECHO=GPIO2
+
+TB6612FNG DRIVER 1 (Front Motors):
+  Front Left:   AIN1=GPIO25, AIN2=GPIO26, PWMA=GPIO27
+  Front Right:  BIN1=GPIO14, BIN2=GPIO12, PWMB=GPIO13
+  Standby:      STBY=GPIO21 (must be HIGH)
+
+TB6612FNG DRIVER 2 (Rear Motors):
+  Rear Left:    AIN1=GPIO33, AIN2=GPIO32, PWMA=GPIO15
+  Rear Right:   BIN1=GPIO5,  BIN2=GPIO4,  PWMB=GPIO2
+  Standby:      STBY=GPIO19 (must be HIGH)
 ```
 
 ### Hardware Setup Guide
 
-Complete wiring instructions and diagrams:
-- **[HARDWARE_SETUP.md](HARDWARE_SETUP.md)** - Full wiring guide with pin diagrams
+**Quick Start:**
+1. **[TB6612FNG_SETUP.md](TB6612FNG_SETUP.md)** - TB6612FNG motor driver setup and configuration
+2. **[ESP32_FIRMWARE.md](ESP32_FIRMWARE.md)** - Complete ESP32 firmware guide
+3. **[esp32_firmware_template.ino](esp32_firmware_template.ino)** - Ready-to-upload Arduino code
+
+**Detailed Documentation:**
+- **[HARDWARE_SETUP.md](HARDWARE_SETUP.md)** - Full wiring guide with diagrams
 - **[AI_HAT_SETUP.md](AI_HAT_SETUP.md)** - AI HAT+ configuration for local models
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and communication protocol
 
 ### Quick Hardware Start
 
-**1. Assemble Hardware** (see [HARDWARE_SETUP.md](HARDWARE_SETUP.md))
-
-**2. Install GPIO Dependencies**
+**1. Upload ESP32 Firmware**
 ```bash
-pip install RPi.GPIO
+# Using Arduino IDE
+# 1. Install Arduino IDE 2.x
+# 2. Add ESP32 board support
+# 3. Install ArduinoJson library
+# 4. Open esp32_firmware_template.ino
+# 5. Upload to ESP32
+
+# Or use PlatformIO (recommended)
+# See ESP32_FIRMWARE.md for complete instructions
 ```
 
-**3. Configure for Hardware Mode**
+**2. Connect Hardware** (see [ESP32_FIRMWARE.md](ESP32_FIRMWARE.md))
+- Connect ESP32 to Raspberry Pi via USB
+- Wire motors to ESP32 GPIO
+- Wire sensors to ESP32 GPIO
+
+**3. Install Python Dependencies**
+```bash
+pip install pyserial  # Required for ESP32 communication
+# Optional: pip install picamera2 ultralytics opencv-python
+```
+
+**4. Configure for Hardware Mode**
 ```bash
 export USE_GPIO_ACTIONS=true
 export USE_REAL_SENSORS=true
-export USE_REAL_CAMERA=true
-export USE_REAL_VISION=true
-export LLM_PROVIDER=hailo  # or ollama
+export ESP32_SERIAL_PORT=/dev/ttyACM0  # or COM3 on Windows
 python main.py
 ```
 
-**4. Test Components**
+**5. Test Components**
 ```bash
-# Test GPIO pin configuration
-python hardware/pins.py
-
-# Test ultrasonic sensors
-python hardware/sensors.py
+# Test ESP32 connection
+python -c "from hardware.esp32_serial import get_esp32; print('Connected!' if get_esp32().is_available() else 'Not connected')"
 
 # Test motors (robot on blocks!)
 python hardware/motors.py
 
-# Test camera
+# Test sensors
+python hardware/sensors.py
+
+# Test camera (optional)
 python vision/camera.py
 ```
 
