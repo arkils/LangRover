@@ -26,7 +26,8 @@ LangRover separates the robot's cognitive layer (LangChain agent) from the hardw
                     │ USB Serial (JSON)
 ┌───────────────────┴──────────────────────────────┐
 │  ESP32 - Hardware Control Layer                  │
-│  - Motor Control (L293D drivers)                 │
+│  - Dual-Core Processing (Core 0/1)               │
+│  - Motor Control (TB6612FNG drivers)             │
 │  - Sensor Reading (Ultrasonic)                   │
 │  - Real-time GPIO operations                     │
 └───────────────────┬──────────────────────────────┘
@@ -458,11 +459,13 @@ Motors & Sensors
 ```
 
 The ESP32 provides:
-- ✅ Real-time motor control
-- ✅ Reliable sensor readings
+- ✅ Dual-core processing (Core 0: motors, Core 1: sensors)
+- ✅ Real-time motor control with instant response
+- ✅ Continuous sensor monitoring at 10Hz
+- ✅ Reliable sensor readings with auto-broadcast
 - ✅ Electrical isolation from Pi
 - ✅ Hardware safety features
-- ✅ Simple JSON communication
+- ✅ Simple JSON communication over USB serial
 
 ### Required Hardware
 

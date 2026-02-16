@@ -4,10 +4,20 @@
 
 The ESP32 microcontroller acts as a hardware abstraction layer between the Raspberry Pi and the robot's motors and sensors. It receives commands via USB CDC serial and controls the hardware directly using its GPIO pins.
 
+**Dual-Core Architecture**: The firmware leverages both ESP32 cores for optimal performance:
+- **Core 0**: Handles serial communication and motor control
+- **Core 1**: Continuously reads sensors and updates world state
+
+This design ensures motors respond instantly while sensors update autonomously in the background.
+
 ## Architecture
 
 ```
-Raspberry Pi → [USB Serial] → ESP32 → [GPIO] → Motors/Sensors
+Raspberry Pi → [USB Serial] → ESP32 Core 0 (Motors + Commands)
+                                  ↕ (Thread-Safe Mutex)
+                              ESP32 Core 1 (Sensors + State)
+                                  ↓
+                              [GPIO] → Motors/Sensors
 ```
 
 ## Hardware Connections
@@ -95,11 +105,17 @@ The TB6612FNG is a dual motor driver capable of controlling 2 DC motors per boar
 
 #### Sensor Commands
 
-**Read Ultrasonic Sensor:**
+**Read Single Ultrasonic Sensor:**
 ```json
 {"cmd": "sensor", "type": "ultrasonic", "id": "front"}
 ```
-- Valid IDs: `"front"`, `"left"`, `"right"`, `"rear"`
+- Valid IDs: `"front"`, `"left"`, `"right"`, `"rear"`, `"all"`
+
+**Read All Sensors:**
+```json
+{"cmd": "sensor", "type": "ultrasonic", "id": "all"}
+```
+or omit the `"id"` field entirely
 
 #### System Commands
 
@@ -117,10 +133,19 @@ The TB6612FNG is a dual motor driver capable of controlling 2 DC motors per boar
 ```
 
 #### Sensor Data
+
+**Single Sensor Response:**
 ```json
 {"type": "sensor", "id": "front", "distance": 45.2}
 ```
 - `distance`: centimeters (float)
+
+**All Sensors State (Auto-broadcast every 500ms from Core 1):**
+```json
+{"type": "sensor_state", "front": 45.2, "left": 23.1, "right": 18.5, "rear": 102.3, "timestamp": 12345}
+```
+- All distances in centimeters (float)
+- `timestamp`: milliseconds since ESP32 boot
 
 #### Pong
 ```json
@@ -168,39 +193,81 @@ The TB6612FNG is a dual motor driver capable of controlling 2 DC motors per boar
 
 ### Firmware Implementation Structure
 
+#### Dual-Core Architecture
+
 ```cpp
 // Required includes
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-// Pin definitions (from pins.py)
-// ... define all GPIO pins ...
+// Thread-safe sensor state structure
+struct SensorState {
+  float frontDistance;
+  float leftDistance;
+  float rightDistance;
+  float rearDistance;
+  unsigned long lastUpdateTime;
+};
 
-// Motor control functions
+volatile SensorState sensorState;
+SemaphoreHandle_t sensorMutex;  // FreeRTOS mutex for thread-safety
+TaskHandle_t sensorTaskHandle;  // Core 1 task handle
+
+// Motor control functions (Core 0)
 void motorForward(int speed, float duration);
 void motorBackward(int speed, float duration);
 void motorTurnLeft(int speed, float duration);
 void motorTurnRight(int speed, float duration);
 void motorStop();
 
-// Sensor reading functions
+// Sensor reading functions (Core 1)
 float readUltrasonicDistance(int trigPin, int echoPin);
+void updateSensorState(float front, float left, float right, float rear);
+void getSensorState(float* front, float* left, float* right, float* rear);
 
-// Serial communication functions
+// Serial communication functions (Core 0)
 void processCommand(JsonDocument& doc);
 void sendResponse(const char* type, JsonDocument& data);
+void sendAllSensorData();
 
-// Setup and loop
+// Setup and loops
 void setup() {
     Serial.begin(115200);
+    
+    // Create mutex for thread-safe sensor access
+    sensorMutex = xSemaphoreCreateMutex();
+    
     // Initialize GPIO pins
-    // ...
+    setupMotors();
+    setupSensors();
+    
+    // Create sensor task on Core 1
+    xTaskCreatePinnedToCore(
+        sensorTask,      // Function
+        "SensorTask",    // Name
+        4096,            // Stack size
+        NULL,            // Parameters
+        1,               // Priority
+        &sensorTaskHandle,
+        1                // Core 1
+    );
 }
 
+// Core 0: Serial communication and motor control
 void loop() {
     // Read and process JSON commands
-    // Execute motor/sensor operations
+    // Execute motor operations
     // Send responses
+}
+
+// Core 1: Continuous sensor reading
+void sensorTask(void* parameter) {
+    while(1) {
+        // Read all sensors
+        // Update shared state with mutex protection
+        // Periodically broadcast sensor data
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
 }
 ```
 
@@ -296,6 +363,50 @@ RR: BIN1=LOW, BIN2=LOW
 PWM: 0% (optional, brake works regardless)
 ```
 
+## Dual-Core Processing
+
+### Core 0: Command Processing & Motor Control
+- Runs the standard Arduino `loop()` function
+- Handles incoming serial commands
+- Processes JSON parsing
+- Executes motor movements
+- Reads sensor data from cached state (no blocking)
+- Priority: Fast command response
+
+### Core 1: Sensor Monitoring (Background Task)
+- Runs `sensorTask()` in an infinite FreeRTOS task
+- Continuously reads all 4 ultrasonic sensors
+- Updates every 100ms (10Hz update rate)
+- Auto-broadcasts sensor state every 500ms
+- Uses mutex for thread-safe data sharing
+- Priority: Consistent world state updates
+
+### Thread-Safe Data Sharing
+```cpp
+// Core 1 writes (with mutex protection)
+void updateSensorState(float front, float left, float right, float rear) {
+  if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
+    sensorState.frontDistance = front;
+    sensorState.leftDistance = left;
+    sensorState.rightDistance = right;
+    sensorState.rearDistance = rear;
+    sensorState.lastUpdateTime = millis();
+    xSemaphoreGive(sensorMutex);
+  }
+}
+
+// Core 0 reads (with mutex protection)
+void getSensorState(float* front, float* left, float* right, float* rear) {
+  if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
+    *front = sensorState.frontDistance;
+    *left = sensorState.leftDistance;
+    *right = sensorState.rightDistance;
+    *rear = sensorState.rearDistance;
+    xSemaphoreGive(sensorMutex);
+  }
+}
+```
+
 ## Ultrasonic Sensor Reading
 
 ### HC-SR04 Timing
@@ -305,9 +416,35 @@ PWM: 0% (optional, brake works regardless)
 4. Calculate distance: `distance_cm = (pulse_duration_us * 0.0343) / 2`
 
 ### Timeout Handling
-- Maximum wait time: 500ms
-- Return error/None if no echo received
+- Maximum wait time: 30ms per sensor (30000μs timeout)
+- Return -1.0 if no echo received or out of range
 - Valid range: 2cm - 400cm
+- 10ms delay between sensor readings to avoid interference
+
+## Performance Benefits
+
+### Single-Core vs Dual-Core
+
+**Single-Core (Traditional):**
+- Motor command → Wait for sensor read → Response (blocking)
+- Sensor reads only when requested
+- Total latency: Command processing + sensor reading time
+- Intermittent world state updates
+
+**Dual-Core (Current Implementation):**
+- Motor command → Instant response (no blocking)
+- Sensors continuously update at 10Hz
+- Auto-broadcast of sensor state every 500ms
+- Core 0 latency: Command processing only
+- Core 1 latency: Independent of commands
+- Better real-time performance and responsiveness
+
+### Key Advantages
+1. **Lower Latency**: Motor commands execute immediately
+2. **Higher Throughput**: Both operations run simultaneously
+3. **Consistent Updates**: Sensors refresh at regular intervals
+4. **Better Awareness**: Always have fresh sensor data without polling
+5. **Scalability**: Can add more sensor types to Core 1 without affecting Core 0
 
 ## Safety Considerations
 
@@ -316,6 +453,7 @@ PWM: 0% (optional, brake works regardless)
 3. **Watchdog**: Consider implementing a watchdog timer to reset if Pi stops communicating
 4. **Power Protection**: Ensure motor drivers have proper power supply and don't overload ESP32
 5. **Error Recovery**: Handle invalid commands gracefully
+6. **Thread Safety**: Always use mutex when accessing shared sensor data between cores
 
 ## Troubleshooting
 
