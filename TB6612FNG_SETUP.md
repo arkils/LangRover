@@ -133,10 +133,10 @@ pip install -r requirements.txt
 - Rear motors: GPIO 33, 32, 5, 15 (enable GPIO 13)
 
 **To Ultrasonic Sensors:**
-- Front: TRIG 23, ECHO 22
-- Left: TRIG 19, ECHO 18
-- Right: TRIG 17, ECHO 16
-- Rear: TRIG 4, ECHO 2
+- Front: TRIG 23, ECHO 34 (input-only GPIO)
+- Left:  TRIG 18, ECHO 35 (input-only GPIO)
+- Right: TRIG 17, ECHO 36 (input-only GPIO)
+- Rear:  TRIG 16, ECHO 39 (input-only GPIO)
 
 ### 2. ESP32 Firmware Upload
 

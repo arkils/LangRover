@@ -54,16 +54,19 @@ The TB6612FNG is a dual motor driver capable of controlling 2 DC motors per boar
   - BIN2: GPIO 4
   - PWMB: GPIO 2
 - **Control:**
-  - STBY (Standby): GPIO 19 (must be HIGH to enable)
+  - STBY (Standby): GPIO 22 (must be HIGH to enable)
   - VM (Motor Power): 6-12V DC
   - VCC (Logic Power): 3.3V from ESP32
 
 ### Ultrasonic Sensors (4x HC-SR04)
 
-- **Front Sensor**: TRIG GPIO 23, ECHO GPIO 22
-- **Left Sensor**: TRIG GPIO 19, ECHO GPIO 18
-- **Right Sensor**: TRIG GPIO 17, ECHO GPIO 16
-- **Rear Sensor**: TRIG GPIO 4, ECHO GPIO 2
+ECHO pins are wired to input-only GPIOs (34, 35, 36, 39), which are receive-only
+by hardware design — no accidental output drive, no PWM interference.
+
+- **Front Sensor**: TRIG GPIO 23, ECHO GPIO 34 (input-only)
+- **Left Sensor**:  TRIG GPIO 18, ECHO GPIO 35 (input-only)
+- **Right Sensor**: TRIG GPIO 17, ECHO GPIO 36 (input-only)
+- **Rear Sensor**:  TRIG GPIO 16, ECHO GPIO 39 (input-only)
 
 ## Communication Protocol
 

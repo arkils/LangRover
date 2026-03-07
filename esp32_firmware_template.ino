@@ -48,6 +48,24 @@ TaskHandle_t sensorTaskHandle = NULL;
 #define SENSOR_REPORT_INTERVAL 500  // Report to serial every 500ms
 
 // ==================== PIN DEFINITIONS ====================
+//
+// GPIO conflict resolution summary:
+//   The original design had three GPIO conflicts:
+//     GPIO  2 → MOTOR_RR_PWM       vs ULTRASONIC_REAR_ECHO
+//     GPIO  4 → MOTOR_RR_IN2       vs ULTRASONIC_REAR_TRIG
+//     GPIO 19 → MOTOR_DRIVER_2_STBY vs ULTRASONIC_LEFT_TRIG
+//
+//   Fix: All four ECHO pins moved to input-only GPIOs (34/35/36/39),
+//   which are read-only by hardware and therefore ideal for receive signals.
+//   The freed output-capable pins are reused for TRIG/STBY:
+//
+//   ULTRASONIC_FRONT_ECHO  22 → 34  (input-only GPIO)
+//   ULTRASONIC_LEFT_ECHO   18 → 35  (input-only GPIO)
+//   ULTRASONIC_RIGHT_ECHO  16 → 36  (input-only GPIO)
+//   ULTRASONIC_REAR_ECHO    2 → 39  (input-only GPIO)  fixes conflict #1
+//   ULTRASONIC_LEFT_TRIG   19 → 18  (freed from LEFT_ECHO)  fixes conflict #3
+//   MOTOR_DRIVER_2_STBY    19 → 22  (freed from FRONT_ECHO) fixes conflict #3
+//   ULTRASONIC_REAR_TRIG    4 → 16  (freed from RIGHT_ECHO) fixes conflict #2
 
 // TB6612FNG Driver 1 (Front Motors)
 #define MOTOR_FL_IN1  25
@@ -69,20 +87,21 @@ TaskHandle_t sensorTaskHandle = NULL;
 #define MOTOR_RR_IN2  4
 #define MOTOR_RR_PWM  2
 
-#define MOTOR_DRIVER_2_STBY  19  // Standby for Driver 2 (Rear motors)
+#define MOTOR_DRIVER_2_STBY  22  // Standby for Driver 2 (Rear motors) — moved from GPIO 19
 
-// Ultrasonic Sensors
+// HC-SR04 Ultrasonic Sensors
+// ECHO pins use input-only GPIOs (34, 35, 36, 39) — ideal for receive-only signals
 #define ULTRASONIC_FRONT_TRIG  23
-#define ULTRASONIC_FRONT_ECHO  22
+#define ULTRASONIC_FRONT_ECHO  34  // Input-only GPIO — moved from GPIO 22
 
-#define ULTRASONIC_LEFT_TRIG   19
-#define ULTRASONIC_LEFT_ECHO   18
+#define ULTRASONIC_LEFT_TRIG   18  // Moved from GPIO 19 to free it for MOTOR_DRIVER_2_STBY
+#define ULTRASONIC_LEFT_ECHO   35  // Input-only GPIO — moved from GPIO 18
 
 #define ULTRASONIC_RIGHT_TRIG  17
-#define ULTRASONIC_RIGHT_ECHO  16
+#define ULTRASONIC_RIGHT_ECHO  36  // Input-only GPIO — moved from GPIO 16
 
-#define ULTRASONIC_REAR_TRIG   4
-#define ULTRASONIC_REAR_ECHO   2
+#define ULTRASONIC_REAR_TRIG   16  // Moved from GPIO 4 to free it for MOTOR_RR_IN2
+#define ULTRASONIC_REAR_ECHO   39  // Input-only GPIO — moved from GPIO 2
 
 // PWM Configuration
 #define PWM_FREQ      20000   // 20kHz PWM frequency (recommended for TB6612FNG)
@@ -118,21 +137,36 @@ void sensorTask(void* parameter);
 // ==================== SETUP ====================
 
 void setup() {
+  Serial.begin(115200);
   Serial.println("{\"type\":\"info\",\"message\":\"ESP32 Dual-Core Initialization...\"}");
-  
+
   // Create mutex for sensor data synchronization
   sensorMutex = xSemaphoreCreateMutex();
-  
+
   if (sensorMutex == NULL) {
     Serial.println("{\"type\":\"error\",\"message\":\"Failed to create mutex\"}");
-    while(1); // Halt if mutex creation fails
+    while (1);  // Halt if mutex creation fails
   }
-  
+
   // Setup hardware
   setupMotors();
   setupSensors();
-  
-  // Create sensor reading task on(Core 0) ====================
+
+  // Create sensor reading task pinned to Core 1
+  xTaskCreatePinnedToCore(
+    sensorTask,         // Task function
+    "SensorTask",       // Task name
+    4096,               // Stack size in bytes
+    NULL,               // Task parameter
+    1,                  // Priority
+    &sensorTaskHandle,  // Task handle
+    1                   // Core 1
+  );
+
+  Serial.println("{\"type\":\"ready\",\"message\":\"ESP32 initialized\"}");
+}
+
+// ==================== MAIN LOOP (Core 0) ====================
 // Handles serial communication and motor control
 
 void loop() {
@@ -140,27 +174,27 @@ void loop() {
   if (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
     input.trim();
-    
+
     if (input.length() > 0) {
       // Parse JSON command
       JsonDocument doc;
       DeserializationError error = deserializeJson(doc, input);
-      
+
       if (error) {
         sendError("JSON parse error");
         return;
       }
-      
+
       // Process the command
       processCommand(doc);
     }
   }
-  
+
   delay(10);  // Small delay to prevent busy waiting
 }
 
 // ==================== SENSOR TASK (Core 1) ====================
-// Continuously reads all sensors and updates world state
+// Continuously reads all sensors and updates shared world state
 
 void sensorTask(void* parameter) {
   unsigned long lastUpdate = 0;
@@ -182,10 +216,9 @@ void sensorTask(void* parameter) {
       delay(10);
       
       float rear = readUltrasonicDistance(ULTRASONIC_REAR_TRIG, ULTRASONIC_REAR_ECHO);
-      
+
       // Update shared sensor state (thread-safe)
       updateSensorState(front, left, right, rear);
-      
       lastUpdate = currentTime;
     }
     
@@ -198,33 +231,6 @@ void sensorTask(void* parameter) {
     // Yield to other tasks
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
-  Serial.println("{\"type\":\"ready\",\"message\":\"ESP32 initialized\"}");
-}
-
-// ==================== MAIN LOOP ====================
-
-void loop() {
-  // Check for incoming serial data
-  if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n');
-    input.trim();
-    
-    if (input.length() > 0) {
-      // Parse JSON command
-      JsonDocument doc;
-      DeserializationError error = deserializeJson(doc, input);
-      
-      if (error) {
-        sendError("JSON parse error");
-        return;
-      }
-      
-      // Process the command
-      processCommand(doc);
-    }
-  }
-  
-  delay(10);  // Small delay to prevent busy waiting
 }
 
 // ==================== MOTOR SETUP ====================
@@ -290,43 +296,32 @@ void setupSensors() {
 
 void processCommand(JsonDocument& doc) {
   const char* cmd = doc["cmd"];
-  
+
   if (cmd == nullptr) {
     sendError("Missing 'cmd' field");
     return;
-  } - now reads from cached state (updated by Core 1)
-  if (strcmp(cmd, "sensor") == 0) {
-    const char* type = doc["type"];
-    const char* id = doc["id"];
-    
-    if (type == nullptr) {
-      sendError("Missing 'type' field");
+  }
+
+  // Handle ping command
+  if (strcmp(cmd, "ping") == 0) {
+    JsonDocument resp;
+    resp["type"] = "pong";
+    serializeJson(resp, Serial);
+    Serial.println();
+    return;
+  }
+
+  // Handle motor commands
+  if (strcmp(cmd, "motor") == 0) {
+    const char* action   = doc["action"];
+    int         speed    = doc["speed"]    | 70;
+    float       duration = doc["duration"] | 0.0f;
+
+    if (action == nullptr) {
+      sendError("Missing 'action' field");
       return;
     }
-    
-    if (strcmp(type, "ultrasonic") == 0) {
-      // If no specific sensor requested, send all
-      if (id == nullptr || strcmp(id, "all") == 0) {
-        sendAllSensorData();
-        return;
-      }
-      
-      // Get sensor data from shared state (thread-safe)
-      float front, left, right, rear;
-      getSensorState(&front, &left, &right, &rear);
-      
-      float distance = -1.0;
-      
-      // Return the appropriate cached sensor value
-      if (strcmp(id, "front") == 0) {
-        distance = front;
-      } else if (strcmp(id, "left") == 0) {
-        distance = left;
-      } else if (strcmp(id, "right") == 0) {
-        distance = right;
-      } else if (strcmp(id, "rear") == 0) {
-        distance = rear
-    // Execute motor action
+
     if (strcmp(action, "forward") == 0) {
       motorForward(speed, duration);
     } else if (strcmp(action, "backward") == 0) {
@@ -341,46 +336,54 @@ void processCommand(JsonDocument& doc) {
       sendError("Invalid motor action");
       return;
     }
-    
+
     sendAck(true);
     return;
   }
-  
+
   // Handle sensor commands
   if (strcmp(cmd, "sensor") == 0) {
     const char* type = doc["type"];
-    const char* id = doc["id"];
-    
-    if (type == nullptr || id == nullptr) {
-      sendError("Missing 'type' or 'id' field");
+    const char* id   = doc["id"];
+
+    if (type == nullptr) {
+      sendError("Missing 'type' field");
       return;
     }
-    
+
     if (strcmp(type, "ultrasonic") == 0) {
+      // No id or "all" → return all sensor values
+      if (id == nullptr || strcmp(id, "all") == 0) {
+        sendAllSensorData();
+        return;
+      }
+
+      // Return cached value for the requested sensor
+      float front, left, right, rear;
+      getSensorState(&front, &left, &right, &rear);
+
       float distance = -1.0;
-      
-      // Read the appropriate sensor
       if (strcmp(id, "front") == 0) {
-        distance = readUltrasonicDistance(ULTRASONIC_FRONT_TRIG, ULTRASONIC_FRONT_ECHO);
+        distance = front;
       } else if (strcmp(id, "left") == 0) {
-        distance = readUltrasonicDistance(ULTRASONIC_LEFT_TRIG, ULTRASONIC_LEFT_ECHO);
+        distance = left;
       } else if (strcmp(id, "right") == 0) {
-        distance = readUltrasonicDistance(ULTRASONIC_RIGHT_TRIG, ULTRASONIC_RIGHT_ECHO);
+        distance = right;
       } else if (strcmp(id, "rear") == 0) {
-        distance = readUltrasonicDistance(ULTRASONIC_REAR_TRIG, ULTRASONIC_REAR_ECHO);
+        distance = rear;
       } else {
         sendError("Invalid sensor id");
         return;
       }
-      
+
       sendSensorData(id, distance);
       return;
     }
-    
+
     sendError("Invalid sensor type");
     return;
   }
-  
+
   sendError("Unknown command");
 }
 
@@ -531,9 +534,12 @@ float readUltrasonicDistance(int trigPin, int echoPin) {
   }
   
   // Calculate distance in centimeters
-  // Speed of sound: 343 m/s = 0.0343 cm/us
-  // Distance = (duration * 0.0343) / 2
-  float distance = (duratiNSOR STATE MANAGEMENT ====================
+  // Speed of sound: 343 m/s = 0.0343 cm/µs
+  // Distance = (duration * 0.0343) / 2  (round trip)
+  return (duration * 0.0343f) / 2.0f;
+}
+
+// ==================== SENSOR STATE MANAGEMENT ====================
 
 // Thread-safe update of sensor state (called by Core 1)
 void updateSensorState(float front, float left, float right, float rear) {
@@ -593,18 +599,8 @@ void sendAllSensorData() {
   doc["left"] = left;
   doc["right"] = right;
   doc["rear"] = rear;
-  doc["timestamp"] = millis()
-  
-  serializeJson(doc, Serial);
-  Serial.println();
-}
+  doc["timestamp"] = millis();
 
-void sendSensorData(const char* id, float distance) {
-  JsonDocument doc;
-  doc["type"] = "sensor";
-  doc["id"] = id;
-  doc["distance"] = distance;
-  
   serializeJson(doc, Serial);
   Serial.println();
 }

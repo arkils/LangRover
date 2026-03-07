@@ -35,22 +35,32 @@ class ESP32PinConfiguration:
     """Complete GPIO pin configuration for ESP32 controlling LangRover hardware."""
     
     # Ultrasonic Sensors (4 sensors: front, left, right, rear)
-    # ESP32 GPIO pins
-    ultrasonic_front: UltrasonicPins = field(default_factory=lambda: UltrasonicPins(trigger=23, echo=22))
-    ultrasonic_left: UltrasonicPins = field(default_factory=lambda: UltrasonicPins(trigger=19, echo=18))
-    ultrasonic_right: UltrasonicPins = field(default_factory=lambda: UltrasonicPins(trigger=17, echo=16))
-    ultrasonic_rear: UltrasonicPins = field(default_factory=lambda: UltrasonicPins(trigger=4, echo=2))
-    
+    # ECHO pins use input-only GPIOs (34, 35, 36, 39) — ideal for receive-only signals.
+    # TRIG pins use standard output-capable GPIOs.
+    #
+    # GPIO conflict resolution (original had GPIO 2, 4, 19 each double-assigned):
+    #   ultrasonic_front  echo: 22 → 34  (input-only GPIO)
+    #   ultrasonic_left   trig: 19 → 18  (freed from echo move; was conflicting with motor_driver_2_stby)
+    #   ultrasonic_left   echo: 18 → 35  (input-only GPIO)
+    #   ultrasonic_right  echo: 16 → 36  (input-only GPIO)
+    #   ultrasonic_rear   trig:  4 → 16  (freed from echo move; was conflicting with motor_rear_right.in2)
+    #   ultrasonic_rear   echo:  2 → 39  (input-only GPIO; was conflicting with motor_rear_right.pwm)
+    #   motor_driver_2_stby:    19 → 22  (freed from echo move; was conflicting with ultrasonic_left trig)
+    ultrasonic_front: UltrasonicPins = field(default_factory=lambda: UltrasonicPins(trigger=23, echo=34))
+    ultrasonic_left: UltrasonicPins = field(default_factory=lambda: UltrasonicPins(trigger=18, echo=35))
+    ultrasonic_right: UltrasonicPins = field(default_factory=lambda: UltrasonicPins(trigger=17, echo=36))
+    ultrasonic_rear: UltrasonicPins = field(default_factory=lambda: UltrasonicPins(trigger=16, echo=39))
+
     # TB6612FNG Motor Driver Channels (2 drivers, each controls 2 motors)
     # ESP32 GPIO pins
     motor_front_left: MotorPins = field(default_factory=lambda: MotorPins(in1=25, in2=26, pwm=27))
     motor_front_right: MotorPins = field(default_factory=lambda: MotorPins(in1=14, in2=12, pwm=13))
     motor_rear_left: MotorPins = field(default_factory=lambda: MotorPins(in1=33, in2=32, pwm=15))
     motor_rear_right: MotorPins = field(default_factory=lambda: MotorPins(in1=5, in2=4, pwm=2))
-    
+
     # TB6612FNG Standby Pins (one per driver board)
     motor_driver_1_stby: int = 21  # Controls front left + front right motors
-    motor_driver_2_stby: int = 19  # Controls rear left + rear right motors
+    motor_driver_2_stby: int = 22  # Controls rear left + rear right motors — moved from GPIO 19
 
 
 # Global ESP32 pin configuration instance
