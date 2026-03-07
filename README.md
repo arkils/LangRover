@@ -493,10 +493,10 @@ The ESP32 provides:
 
 ```
 ULTRASONIC SENSORS (ESP32):
-  Front:  TRIG=GPIO23, ECHO=GPIO22
-  Left:   TRIG=GPIO19, ECHO=GPIO18
-  Right:  TRIG=GPIO17, ECHO=GPIO16
-  Rear:   TRIG=GPIO4,  ECHO=GPIO2
+  Front:  TRIG=GPIO23, ECHO=GPIO34 (input-only)
+  Left:   TRIG=GPIO18, ECHO=GPIO35 (input-only)
+  Right:  TRIG=GPIO17, ECHO=GPIO36 (input-only)
+  Rear:   TRIG=GPIO16, ECHO=GPIO39 (input-only)
 
 TB6612FNG DRIVER 1 (Front Motors):
   Front Left:   AIN1=GPIO25, AIN2=GPIO26, PWMA=GPIO27
@@ -506,7 +506,7 @@ TB6612FNG DRIVER 1 (Front Motors):
 TB6612FNG DRIVER 2 (Rear Motors):
   Rear Left:    AIN1=GPIO33, AIN2=GPIO32, PWMA=GPIO15
   Rear Right:   BIN1=GPIO5,  BIN2=GPIO4,  PWMB=GPIO2
-  Standby:      STBY=GPIO19 (must be HIGH)
+  Standby:      STBY=GPIO22 (must be HIGH)
 ```
 
 ### Hardware Setup Guide
