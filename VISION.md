@@ -138,8 +138,9 @@ pip install ultralytics opencv-python numpy
 ```
 
 #### 3. Download YOLO Model
+Weights download automatically on first run. To pre-download:
 ```bash
-python -c "from ultralytics import YOLO; YOLO('yolov8nano.pt')"
+python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
 ```
 
 #### 4. Enable Camera in raspi-config
@@ -183,8 +184,23 @@ export YOLO_MODEL=small
 python main.py
 ```
 
-## Vision Data Structure
+## Skill System Integration
 
+Detected objects don't just appear in the LLM prompt — they drive the **skill system**.
+Every YOLO detection is matched against registered skills in `SkillRegistry` and relevant
+skills are surfaced to the LLM as callable tools:
+
+| Detected object | Triggered skill | Behaviour |
+|---|---|---|
+| `person` | `person_safety_stop` | Immediate stop |
+| `cat` | `greet_cat` | Left-right wiggle + console message |
+| `dog` | `greet_dog` | Forward nudge (bow) + console message |
+| *(anything else)* | navigation tools | move / turn / stop |
+
+To add a new skill for a new object, subclass `Skill` in `skills/builtin.py` and register
+it in `main.py` — the LLM picks it up automatically next run.
+
+See `skills/` for full documentation.
 ### VisionData
 ```python
 class VisionData(BaseModel):

@@ -24,6 +24,15 @@ class CLIRobotActions(RobotActions):
         """
         print(f"[ACTION] Turning left {degrees} degrees")
 
+    def turn_right(self, degrees: int) -> None:
+        """
+        Simulate turning right by printing to terminal.
+
+        Args:
+            degrees: Degrees to turn clockwise.
+        """
+        print(f"[ACTION] Turning right {degrees} degrees")
+
     def stop(self) -> None:
         """Simulate stopping by printing to terminal."""
         print("[ACTION] Stopping")

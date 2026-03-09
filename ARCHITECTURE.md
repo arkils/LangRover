@@ -33,19 +33,28 @@ Raspberry Pi 5 ←→ USB Serial (CDC) ←→ ESP32 ←→ GPIO ←→ Motors/Se
 │                        (brain/)                                 │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  LLM Agent (LangChain)                                   │  │
+│  │  LLM Agent (LangChain tool calling)                      │  │
 │  │  - Reads: WorldState (sensors + vision)                 │  │
-│  │  - Consults: gemma3:270m via Ollama                     │  │
-│  │  - Decides: move_forward | turn_left | turn_right |    │  │
-│  │             stop                                         │  │
+│  │  - Consults: gemma3:270m / OpenAI via bind_tools()      │  │
+│  │  - Navigation tools: move_forward | turn_left |         │  │
+│  │    turn_right | stop                                     │  │
+│  │  - Skill tools: greet_cat | greet_dog |                 │  │
+│  │    person_safety_stop | <your custom skills>            │  │
 │  │  - Safety Check: People detected → STOP immediately    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                            ↓                                    │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Skill Registry (skills/)                                │  │
+│  │  - Registered skills exposed as LangChain tools         │  │
+│  │  - Triggered by YOLO-detected object classes            │  │
+│  │  - Extensible: subclass Skill, call registry.register() │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                            ↓                                    │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  System Prompts (prompts.py)                             │  │
 │  │  - Robot constraints & safety rules                      │  │
 │  │  - Vision-aware behavior strategy                        │  │
-│  │  - Object handling instructions                          │  │
+│  │  - RELEVANT SKILLS hint injected per cycle              │  │
 │  │  - PEOPLE DETECTION = HIGHEST PRIORITY                  │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
@@ -118,7 +127,8 @@ Raspberry Pi 5 ←→ USB Serial (CDC) ←→ ESP32 ←→ GPIO ←→ Motors/Se
 │  │  ├─ turn_right(degrees)       → "[ACTION] Turning..."   │  │
 │  │  └─ stop()                    → "[ACTION] Stopping..."  │  │
 │  │                                                           │  │
-│  │  (Replace with HardwareRobotActions for real robot)    │  │
+│  │  GPIORobotActions (gpio_actions.py)                      │  │
+│  │  └─ Same interface → real ESP32 motor commands          │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                            ↓                                    │
 │  ┌──────────────────────────────────────────────────────────┐  │
@@ -137,29 +147,30 @@ START
   ↓
 REPEAT (10 cycles):
   ├─ [world/simulator.py] read_world_state()
-  │   ├─ Generate distance sensors (random)
-  │   ├─ Generate target visible (random)
+  │   ├─ Generate/read distance sensors
   │   ├─ [vision/vision.py] get_vision_detector().detect()
-  │   │   ├─ If USE_REAL_VISION: YOLOVisionDetector
+  │   │   ├─ If USE_REAL_VISION: YOLOVisionDetector (Pi Camera frame)
   │   │   └─ Else: MockVisionDetector
   │   └─ Return WorldState with vision data
   │
   ├─ [brain/agent.py] decide_and_act(world_state)
-  │   ├─ Check: people_count > 0?
-  │   │   └─ YES → robot_actions.stop(); return
+  │   ├─ SAFETY: people_count > 0? → robot_actions.stop(); return
   │   │
-  │   ├─ Build vision_report from detected objects
-  │   ├─ Format sensor_input with distances + vision
-  │   ├─ Call LLM: "What should I do?"
-  │   ├─ Parse decision: move_forward | turn_left | turn_right | stop
-  │   └─ Execute action
+  │   ├─ Build nav tools   (move_forward, turn_left, turn_right, stop)
+  │   ├─ Build skill tools (greet_cat, greet_dog, person_safety_stop, ...)
+  │   ├─ Inject RELEVANT SKILLS hint for detected objects
+  │   ├─ Call llm.bind_tools(nav_tools + skill_tools).invoke(messages)
+  │   ├─ If tool_calls in response → execute each tool in order
+  │   └─ Else (plain text fallback) → parse and execute action
   │
   └─ Display results
-     [SENSORS] Front: 360cm | Objects: chair(82%) | People: 1
-     [DECISION] action: move_forward 30
-     [SAFETY] People detected! Stopping immediately.
-     [ACTION] Stopping
-     [EXECUTED] STOP (people safety protocol)
+     [SENSORS]  Front: 360cm | Objects: cat(88%) | People: 0
+     [TOOL]     greet_cat({})
+     [SKILL]    Hello, cat! =^.^=
+     [ACTION]   Turning left 20 degrees
+     [ACTION]   Turning right 40 degrees
+     [ACTION]   Turning left 20 degrees
+     [SKILL]    greet_cat complete: Cat greeted with a friendly wiggle
 
 END
 ```
@@ -175,17 +186,39 @@ END
        ↓
 ┌──────────────┐
 │ AGENT        │ Process:
-└──────────────┘ 1. Check safety (people?)
-       │         2. Format sensor report
-       │         3. Consult LLM
-       │         4. Execute decision
+└──────────────┘ 1. Hard safety check (people → stop, skip LLM)
+       │         2. Build nav tools + skill tools
+       │         3. Inject RELEVANT SKILLS hint into prompt
+       │         4. Call LLM with bind_tools()
+       │         5. Execute returned tool calls
        ↓
 ┌──────────────┐
-│ ACTION       │ Output:
-└──────────────┘ move_forward(distance)
-                 turn_left(degrees)
-                 turn_right(degrees)
-                 stop()
+│ ACTION /     │ Either a navigation primitive:
+│ SKILL        │   move_forward(cm) | turn_left(°) | turn_right(°) | stop()
+└──────────────┘ Or a skill sequence:
+                   e.g. greet_cat → turn_left(20) + turn_right(40) + turn_left(20)
+```
+
+## Skill System
+
+```
+skills/
+├── base.py       Skill ABC + SkillContext dataclass
+├── registry.py   SkillRegistry — register, lookup, convert to LangChain tools
+├── builtin.py    CatGreetingSkill, DogGreetingSkill, PersonSafetySkill
+└── __init__.py   Public API
+```
+
+Adding a new skill requires only subclassing `Skill` and registering it in `main.py`:
+
+```python
+class WaveSkill(Skill):
+    name = "wave"
+    description = "Wave at a detected bottle"
+    trigger_objects = ["bottle"]
+    def execute(self, ctx): ...
+
+skill_registry.register(WaveSkill())
 ```
 
 ## Vision Pipeline

@@ -8,8 +8,12 @@ import os
 if sys.platform == "win32":
     os.system("chcp 65001 > nul")
 
+from dotenv import load_dotenv
+load_dotenv()  # loads .env from the project root before Config reads env vars
+
 from config import Config
 from brain.agent import create_agent, decide_and_act
+from skills import SkillRegistry, get_default_skills
 from world.simulator import read_world_state
 
 
@@ -29,6 +33,13 @@ def main() -> None:
     print("=" * 60)
     print()
 
+    # Build skill registry with default built-in skills.
+    # Register additional skills here before create_agent() is called.
+    skill_registry = SkillRegistry()
+    for skill in get_default_skills():
+        skill_registry.register(skill)
+    print()
+
     # Initialize robot actions (GPIO or CLI)
     if config.USE_GPIO_ACTIONS:
         try:
@@ -46,7 +57,7 @@ def main() -> None:
         print("[ACTIONS] Using CLI simulation")
 
     # Create agent
-    agent = create_agent(robot_actions, llm_provider=config.LLM_PROVIDER)
+    agent = create_agent(robot_actions, skill_registry, llm_provider=config.LLM_PROVIDER)
 
     # Main control loop
     try:

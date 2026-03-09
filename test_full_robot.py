@@ -18,18 +18,22 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from world.simulator import read_world_state
-from world.state import WorldState
+from world.state import WorldState, VisionData, DetectedObject
 from brain.agent import create_agent, decide_and_act
 from actions.cli_actions import CLIRobotActions
 from vision.vision import get_vision_detector
+from skills import SkillRegistry, get_default_skills
+from skills.base import SkillContext
 
 
 class RobotSystemTest:
     """Complete robot system test suite."""
 
     def __init__(self):
-        self.agent = create_agent(CLIRobotActions(), llm_provider="ollama")
         self.actions = CLIRobotActions()
+        self.skill_registry = SkillRegistry()
+        for skill in get_default_skills():
+            self.skill_registry.register(skill)
         self.test_results = []
         self.start_time = None
 
@@ -96,64 +100,61 @@ class RobotSystemTest:
             return False
 
     def test_agent_decision_making(self):
-        """Test 3: Agent decision making with various scenarios."""
-        self.log("Agent Decision Making", "TEST")
+        """Test 3: Agent structure and tool building (no LLM call)."""
+        self.log("Agent Tool Building", "TEST")
 
         try:
-            # Create a simple CLI-based agent for testing
-            test_agent = create_agent(CLIRobotActions(), llm_provider="ollama")
-            
-            scenarios = [
-                ("Normal movement", WorldState(
-                    front_distance_cm=150, left_distance_cm=100, 
-                    right_distance_cm=100, target_visible=False
-                )),
-                ("Obstacle ahead", WorldState(
-                    front_distance_cm=25, left_distance_cm=100,
-                    right_distance_cm=100, target_visible=False
-                )),
-                ("Target detected", WorldState(
-                    front_distance_cm=200, left_distance_cm=100,
-                    right_distance_cm=100, target_visible=True
-                )),
-            ]
+            from brain.agent import _build_navigation_tools, _build_human_prompt
 
-            for scenario_name, state in scenarios:
-                self.log(f"  {scenario_name}: Testing agent response", "SUCCESS")
-                # Note: Full LLM call would require Ollama running
-                # This validates the agent structure works
-                
+            actions = CLIRobotActions()
+            nav_tools = _build_navigation_tools(actions)
+            tool_names = {t.name for t in nav_tools}
+            assert "move_forward" in tool_names, "missing move_forward tool"
+            assert "turn_left" in tool_names, "missing turn_left tool"
+            assert "turn_right" in tool_names, "missing turn_right tool"
+            assert "stop" in tool_names, "missing stop tool"
+            self.log(f"  Nav tools: {sorted(tool_names)}", "SUCCESS")
+
+            state = WorldState(
+                front_distance_cm=150, left_distance_cm=100,
+                right_distance_cm=100, target_visible=False
+            )
+            prompt = _build_human_prompt(state, self.skill_registry)
+            assert "Front" in prompt and "150" in prompt, "prompt missing sensor data"
+            self.log(f"  Human prompt built ({len(prompt)} chars)", "SUCCESS")
+
+            skill_tools = self.skill_registry.to_langchain_tools(
+                SkillContext(world_state=state, robot_actions=actions)
+            )
+            skill_names = {t.name for t in skill_tools}
+            assert "greet_cat" in skill_names, "missing greet_cat skill tool"
+            assert "greet_dog" in skill_names, "missing greet_dog skill tool"
+            assert "person_safety_stop" in skill_names, "missing person_safety_stop skill tool"
+            self.log(f"  Skill tools: {sorted(skill_names)}", "SUCCESS")
+
             return True
         except Exception as e:
-            self.log(f"Agent Decision Making Test Failed: {e}", "ERROR")
+            self.log(f"Agent Tool Building Test Failed: {e}", "ERROR")
             return False
 
     def test_motor_control(self):
-        """Test 4: Motor control actions."""
+        """Test 4: All four motor control actions."""
         self.log("Motor Control Actions", "TEST")
 
         try:
             commands = [
-                ("move_forward", 70),
-                ("move_backward", 50),
+                ("move_forward", 50),
                 ("turn_left", 45),
-                ("turn_right", -45),
+                ("turn_right", 45),
                 ("stop", None),
             ]
 
             for cmd_name, param in commands:
-                if cmd_name == "move_backward":
-                    self.actions.move_forward(-param)
-                    self.log(f"  Motor command executed: move_backward", "SUCCESS")
-                elif cmd_name == "turn_right":
-                    self.actions.turn_left(-param)
-                    self.log(f"  Motor command executed: turn_right", "SUCCESS")
-                elif cmd_name == "stop":
-                    self.actions.stop()
-                    self.log(f"  Motor command executed: stop", "SUCCESS")
-                else:
+                if param is not None:
                     getattr(self.actions, cmd_name)(param)
-                    self.log(f"  Motor command executed: {cmd_name}", "SUCCESS")
+                else:
+                    getattr(self.actions, cmd_name)()
+                self.log(f"  Motor command executed: {cmd_name}", "SUCCESS")
 
             return True
         except Exception as e:
@@ -179,6 +180,61 @@ class RobotSystemTest:
             return True
         except Exception as e:
             self.log(f"Integration Loop Test Failed: {e}", "ERROR")
+            return False
+
+    def test_skills_system(self):
+        """Test 5: Skill registry, triggering, and execution."""
+        self.log("Skills System", "TEST")
+
+        try:
+            # Registration
+            assert len(self.skill_registry.get_all()) == 3, "Expected 3 default skills"
+            self.log(f"  Registered skills: {[s.name for s in self.skill_registry.get_all()]}", "SUCCESS")
+
+            # Trigger detection
+            triggered = self.skill_registry.get_triggered_skills(["cat", "cup"])
+            assert any(s.name == "greet_cat" for s in triggered), "cat should trigger greet_cat"
+            self.log(f"  Triggered by ['cat','cup']: {[s.name for s in triggered]}", "SUCCESS")
+
+            triggered_none = self.skill_registry.get_triggered_skills(["bottle", "chair"])
+            assert not any(s.name == "greet_cat" for s in triggered_none), "bottle should not trigger greet_cat"
+            self.log("  No false triggers for unrelated objects", "SUCCESS")
+
+            # Skill execution
+            state = WorldState(
+                front_distance_cm=100, left_distance_cm=100,
+                right_distance_cm=100, target_visible=False,
+                vision=VisionData(objects=[
+                    DetectedObject(name="cat", confidence=0.9, x=0.5, y=0.5, width=0.2, height=0.2)
+                ])
+            )
+            ctx = SkillContext(world_state=state, robot_actions=self.actions)
+
+            from skills.builtin import CatGreetingSkill, DogGreetingSkill, PersonSafetySkill
+            result = CatGreetingSkill().execute(ctx)
+            assert isinstance(result, str) and len(result) > 0, "Skill should return non-empty string"
+            self.log(f"  CatGreetingSkill executed: {result}", "SUCCESS")
+
+            result = DogGreetingSkill().execute(ctx)
+            self.log(f"  DogGreetingSkill executed: {result}", "SUCCESS")
+
+            result = PersonSafetySkill().execute(ctx)
+            self.log(f"  PersonSafetySkill executed: {result}", "SUCCESS")
+
+            # Duplicate registration raises ValueError
+            try:
+                duplicate_registry = SkillRegistry()
+                from skills.builtin import CatGreetingSkill
+                duplicate_registry.register(CatGreetingSkill())
+                duplicate_registry.register(CatGreetingSkill())  # should raise
+                self.log("  ERROR: duplicate registration should have raised", "ERROR")
+                return False
+            except ValueError:
+                self.log("  Duplicate skill registration correctly raises ValueError", "SUCCESS")
+
+            return True
+        except Exception as e:
+            self.log(f"Skills System Test Failed: {e}", "ERROR")
             return False
 
     def test_stress(self, cycles: int = 20):
@@ -215,7 +271,8 @@ class RobotSystemTest:
         tests = [
             ("World State & Sensors", self.test_world_state),
             ("Vision System", self.test_vision_system),
-            ("Agent Decision Making", self.test_agent_decision_making),
+            ("Skills System", self.test_skills_system),
+            ("Agent Tool Building", self.test_agent_decision_making),
             ("Motor Control", self.test_motor_control),
             ("Integration Loop", self.test_integration_loop),
             ("Stress Test", self.test_stress),

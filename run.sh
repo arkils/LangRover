@@ -7,6 +7,7 @@
 
 NO_OLLAMA=false
 MODEL=""
+VISION=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -18,6 +19,10 @@ while [[ $# -gt 0 ]]; do
         --model)
             MODEL="$2"
             shift 2
+            ;;
+        --vision)
+            VISION=true
+            shift
             ;;
         *)
             shift
@@ -98,9 +103,37 @@ if [ "$NO_OLLAMA" = false ]; then
     fi
 fi
 
+# Vision dependencies
+echo ""
+echo "Step 4: Checking vision dependencies..."
+if [ "$VISION" = true ]; then
+    echo "  Installing YOLO + OpenCV (this may take a moment)..."
+    pip install -q ultralytics opencv-python
+    if [ $? -eq 0 ]; then
+        echo "✓ YOLO + OpenCV installed"
+    else
+        echo "✗ Failed to install vision dependencies"
+        exit 1
+    fi
+    export USE_REAL_VISION=true
+    echo "✓ Real YOLO vision enabled"
+else
+    USE_REAL_VISION_VAL=${USE_REAL_VISION:-$(grep -m1 '^USE_REAL_VISION=' .env 2>/dev/null | cut -d= -f2)}
+    if [ "$USE_REAL_VISION_VAL" = "true" ]; then
+        echo "  USE_REAL_VISION=true — verifying ultralytics is installed..."
+        if ! python -c "import ultralytics" 2>/dev/null; then
+            echo "⚠ ultralytics not found. Run: ./run.sh --vision  (or pip install ultralytics opencv-python)"
+        else
+            echo "✓ YOLO ready"
+        fi
+    else
+        echo "  Using mock vision (pass --vision or set USE_REAL_VISION=true in .env to enable YOLO)"
+    fi
+fi
+
 # Run the project
 echo ""
-echo "Step 4: Starting LangRover..."
+echo "Step 5: Starting LangRover..."
 echo ""
 
 if [ -n "$MODEL" ]; then

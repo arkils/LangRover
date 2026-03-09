@@ -24,17 +24,24 @@ When you run the robot:
 
 ```
 [VISION] Using mock vision detector (simulation mode)
-[SENSORS] Front: 360cm | Left: 97cm | Right: 372cm | Objects: chair(82%) | People: 3
-[SAFETY] People detected! Stopping immediately.
+[SENSORS] Front: 360cm | Left: 97cm | Right: 372cm | Objects: cat(88%) | People: 0
+[AGENT]   Consulting LLM | tools: [move_forward, turn_left, turn_right, stop, greet_cat, greet_dog, person_safety_stop]
+[TOOL]    greet_cat({})
+[SKILL]   Hello, cat! =^.^=
+[ACTION]  Turning left 20 degrees
+[ACTION]  Turning right 40 degrees
+[ACTION]  Turning left 20 degrees
+[SKILL]   greet_cat complete: Cat greeted with a friendly wiggle
 ```
 
 ### Line Breakdown:
-- **[VISION]** - Vision system status
-- **[SENSORS]** - Current sensor readings including detected objects & people count
-- **[SAFETY]** - Safety protocol activation (people → stop)
-- **[DECISION]** - What agent decided to do
-- **[ACTION]** - What robot actually did
-- **[EXECUTED]** - Confirmation of action
+- **[VISION]** — Vision system status (mock or YOLO)
+- **[SENSORS]** — Current sensor readings including detected objects & people count
+- **[AGENT]** — LLM is being called with these tools available
+- **[TOOL]** — LLM chose this tool to call
+- **[SKILL]** — Skill console output
+- **[ACTION]** — Physical robot action executed
+- **[SAFETY]** — Safety protocol activation (people → stop)
 
 ## Key Features Added
 
@@ -55,12 +62,13 @@ if people_detected:
     robot.stop()  # No exceptions
 ```
 
-### 3. Object Detection
-Robot detects:
-- Common objects (chairs, tables, cups, etc.)
-- People and faces
-- Motion in scene
-- Frame quality metrics
+### 3. Skill System
+Detected objects trigger registered skills. The LLM receives them as callable tools:
+- **cat detected** → LLM calls `greet_cat` → robot wiggles left-right
+- **dog detected** → LLM calls `greet_dog` → robot bows forward
+- **person detected** → hard safety stop *before* the LLM is even consulted
+
+Add your own skill by subclassing `Skill` in `skills/builtin.py` and registering it in `main.py`.
 
 ## Test Vision Only
 
@@ -84,12 +92,12 @@ pip install ultralytics opencv-python picamera2
 
 ## Next Steps
 
-1. ✅ **Done** - Vision module created
-2. ✅ **Done** - Mock detector working  
-3. ✅ **Done** - Safety protocols implemented
-4. ✅ **Done** - Integration tested and verified
-5. 📋 **Optional** - Test on real Pi with camera
-6. 📋 **Optional** - Customize detection behavior
+1. ✅ Vision module with YOLO + mock fallback
+2. ✅ Safety protocol (person → immediate stop)
+3. ✅ Skill system (objects trigger named skill sequences)
+4. ✅ LangChain tool calling (LLM picks nav tools or skills)
+5. 📋 Test on real Pi with Pi Camera 3 (`./run.sh --vision`)
+6. 📋 Add a custom skill for a new object class
 
 ## Customization Examples
 

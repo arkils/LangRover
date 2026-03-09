@@ -12,13 +12,19 @@ _sensor_array = None
 _use_real_sensors = os.getenv("USE_REAL_SENSORS", "false").lower() == "true"
 
 
+_use_real_vision = os.getenv("USE_REAL_VISION", "false").lower() == "true"
+_yolo_model = os.getenv("YOLO_MODEL", "nano")
+
+
 def get_detector():
-    """Get or initialize vision detector."""
+    """Get or initialize vision detector (real YOLO or mock)."""
     global _vision_detector
     if _vision_detector is None:
-        # Use mock detector for laptop testing
-        from vision.vision import MockVisionDetector
-        _vision_detector = MockVisionDetector()
+        from vision.vision import get_vision_detector
+        _vision_detector = get_vision_detector(
+            use_real=_use_real_vision,
+            yolo_model=_yolo_model,
+        )
     return _vision_detector
 
 

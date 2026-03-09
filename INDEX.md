@@ -45,6 +45,11 @@ Read in order:
 2. [VISION.md](VISION.md) - How it works
 3. [main.py](main.py) - Code walkthrough
 
+### "I want to add a custom skill for a detected object"
+1. Subclass `Skill` in [skills/builtin.py](skills/builtin.py)
+2. Register it in [main.py](main.py) with `skill_registry.register(YourSkill())`
+3. Run — the LLM picks it up automatically
+
 ### "I want to deploy on Raspberry Pi"
 1. Read: [VISION.md](VISION.md#raspberry-pi-setup-real-vision-with-pi-camera-3)
 2. Install: `pip install picamera2 ultralytics opencv-python`
@@ -63,8 +68,13 @@ Read in order:
 ## 🔧 Key Files Reference
 
 ### Brain (Decision Making)
-- **[brain/agent.py](brain/agent.py)** - LLM-based decision maker with vision integration
-- **[brain/prompts.py](brain/prompts.py)** - System prompts with vision rules
+- **[brain/agent.py](brain/agent.py)** - LLM tool calling agent with skill + nav tools
+- **[brain/prompts.py](brain/prompts.py)** - System prompts with vision & skill rules
+
+### Skills (Object-Triggered Behaviours)
+- **[skills/base.py](skills/base.py)** - `Skill` ABC + `SkillContext`
+- **[skills/registry.py](skills/registry.py)** - `SkillRegistry` (register, lookup, LangChain tools)
+- **[skills/builtin.py](skills/builtin.py)** - `CatGreetingSkill`, `DogGreetingSkill`, `PersonSafetySkill`
 
 ### Vision (Computer Vision)
 - **[vision/camera.py](vision/camera.py)** - Pi Camera 3 & Mock camera
@@ -95,14 +105,21 @@ Read in order:
 - ✅ Virtual environment isolation
 
 ### Vision Features
-- ✅ Object detection
-- ✅ Person detection  
+- ✅ Object detection (YOLO / mock)
+- ✅ Person detection
 - ✅ Face detection
 - ✅ Motion detection
 - ✅ Pi Camera 3 support
 - ✅ YOLO real detection
 - ✅ Mock vision for testing
-- ✅ Safety protocol (people → stop)
+- ✅ Safety protocol (person → stop)
+
+### Skill System
+- ✅ `Skill` ABC — extensible interface
+- ✅ `SkillRegistry` — register skills, expose as LangChain tools
+- ✅ Built-in: `greet_cat`, `greet_dog`, `person_safety_stop`
+- ✅ YOLO detections trigger relevant skills automatically
+- ✅ LLM picks skill tools via `bind_tools()` (real tool calling)
 
 ### Deployment
 - ✅ Windows support (PowerShell)

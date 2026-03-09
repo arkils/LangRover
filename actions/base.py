@@ -27,6 +27,16 @@ class RobotActions(ABC):
         pass
 
     @abstractmethod
+    def turn_right(self, degrees: int) -> None:
+        """
+        Turn the robot right.
+
+        Args:
+            degrees: Degrees to turn (positive = clockwise).
+        """
+        pass
+
+    @abstractmethod
     def stop(self) -> None:
         """Stop all robot movement."""
         pass

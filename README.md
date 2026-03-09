@@ -421,17 +421,43 @@ Output shows detected objects:
 
 ### Using Real Vision (Raspberry Pi)
 
-Install real vision detection:
+The Pi Camera 3 feeds frames directly into YOLOv8 every decision cycle. Detected objects
+(people, cats, dogs, cups, etc.) are passed to the LLM as part of the world state, and
+the skill system uses them to trigger the right behaviour (e.g. `greet_cat`, `person_safety_stop`).
+
+**Step 1 — Install vision dependencies:**
 ```bash
+# On Raspberry Pi
 pip install ultralytics opencv-python picamera2
+
+# On a laptop (webcam / static frame testing)
+pip install ultralytics opencv-python
 ```
 
-Enable in environment:
+Or use the run scripts which handle installation automatically:
 ```powershell
-$env:USE_REAL_CAMERA = "true"
-$env:USE_REAL_VISION = "true"
-python main.py
+# Windows — installs YOLO + OpenCV and enables real vision in one step
+.\run.ps1 -Vision
 ```
+```bash
+# Linux / Raspberry Pi
+./run.sh --vision
+```
+
+**Step 2 — Enable in `.env`:**
+```env
+USE_REAL_CAMERA=true
+USE_REAL_VISION=true
+YOLO_MODEL=nano          # nano | small | medium | large
+```
+
+**Step 3 — Run normally:**
+```powershell
+.\run.ps1
+```
+
+On first run YOLOv8 downloads the model weights automatically (~6 MB for nano).
+If `ultralytics` is not installed the system falls back to `MockVisionDetector` automatically — nothing breaks, you just get simulated detections.
 
 ### Vision Architecture
 
