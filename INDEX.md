@@ -4,6 +4,9 @@
 
 **New to the project?** Start with one of these:
 
+### For Setting Up a Raspberry Pi from Scratch
+→ [RASPBERRY_PI_SETUP.md](RASPBERRY_PI_SETUP.md) - **OS → Ollama → LangRover, step by step**
+
 ### For Running the Robot
 → [VISION_QUICKSTART.md](VISION_QUICKSTART.md) - **2-minute quick start**
 

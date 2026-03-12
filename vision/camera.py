@@ -31,36 +31,57 @@ class CameraInterface(ABC):
 
 
 class PiCamera3(CameraInterface):
-    """Real Pi Camera 3 implementation."""
+    """Pi Camera Module 3 implementation (Sony IMX708, autofocus, libcamera)."""
+
+    # Capture resolution — 1280×720 is a good balance of speed and detail for YOLO
+    CAPTURE_WIDTH = 1280
+    CAPTURE_HEIGHT = 720
 
     def __init__(self):
-        """Initialize Pi Camera 3."""
+        """Initialize Pi Camera Module 3."""
         self.camera = None
         self.available = False
         self._initialize()
 
     def _initialize(self):
-        """Initialize Pi Camera 3 hardware."""
+        """Configure and start the camera with RGB888 format for YOLO compatibility."""
         try:
             from picamera2 import Picamera2  # type: ignore
 
             self.camera = Picamera2()
+
+            # Configure for video capture: RGB888 gives a 3-channel (H, W, 3) numpy
+            # array directly usable by YOLO / OpenCV without channel conversion.
+            config = self.camera.create_video_configuration(
+                main={"size": (self.CAPTURE_WIDTH, self.CAPTURE_HEIGHT), "format": "RGB888"},
+            )
+            self.camera.configure(config)
+
+            # Enable continuous autofocus (Camera Module 3 supports it)
+            try:
+                self.camera.set_controls({"AfMode": 2})  # 2 = AfModeContinuous
+            except Exception:
+                pass  # Older libcamera versions may not expose AfMode
+
             self.camera.start()
             self.available = True
-            print("[CAMERA] Pi Camera 3 initialized")
+            print(
+                f"[CAMERA] Pi Camera Module 3 initialized "
+                f"({self.CAPTURE_WIDTH}×{self.CAPTURE_HEIGHT} RGB888, autofocus)"
+            )
         except ImportError:
             print("[WARNING] picamera2 not installed. Install with: pip install picamera2")
             self.available = False
         except Exception as e:
-            print(f"[WARNING] Could not initialize Pi Camera 3: {e}")
+            print(f"[WARNING] Could not initialize Pi Camera Module 3: {e}")
             self.available = False
 
     def capture_frame(self) -> Optional[Any]:
         """
-        Capture frame from Pi Camera 3.
+        Capture a frame from the Pi Camera Module 3.
 
         Returns:
-            Numpy array (H, W, 3) or None if unavailable.
+            Numpy array of shape (H, W, 3) in RGB order, or None if unavailable.
         """
         if not self.is_available():
             return None
@@ -77,11 +98,12 @@ class PiCamera3(CameraInterface):
         return self.available and self.camera is not None
 
     def close(self) -> None:
-        """Close camera."""
+        """Close camera and release resources."""
         if self.camera:
             try:
+                self.camera.stop()
                 self.camera.close()
-            except:
+            except Exception:
                 pass
 
 

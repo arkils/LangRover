@@ -9,8 +9,15 @@ echo ""
 
 # Step 1: Create virtual environment
 echo "Step 1: Creating virtual environment..."
+# On Raspberry Pi, use --system-site-packages so picamera2 (installed via apt) is accessible.
+# On a laptop, this flag is harmless.
+VENV_FLAGS=""
+if [ -f /etc/rpi-issue ] || grep -qi "raspberry" /proc/device-tree/model 2>/dev/null; then
+    echo "  (Raspberry Pi detected — using --system-site-packages for picamera2 support)"
+    VENV_FLAGS="--system-site-packages"
+fi
 if [ ! -d "venv" ]; then
-    python3 -m venv venv
+    python3 -m venv venv $VENV_FLAGS
     if [ $? -eq 0 ]; then
         echo "✓ Virtual environment created in ./venv"
     else

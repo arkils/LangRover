@@ -423,14 +423,23 @@ Output shows detected objects:
 
 The Pi Camera 3 feeds frames directly into YOLOv8 every decision cycle. Detected objects
 (people, cats, dogs, cups, etc.) are passed to the LLM as part of the world state, and
-the skill system uses them to trigger the right behaviour (e.g. `greet_cat`, `person_safety_stop`).
+the skill system uses them to trigger the right behaviour (e.g. `greet_cat`, `greet_person`).
 
 **Step 1 — Install vision dependencies:**
 ```bash
-# On Raspberry Pi
-pip install ultralytics opencv-python picamera2
+# On Raspberry Pi — picamera2 must come from apt, not pip,
+# because it depends on compiled libcamera system bindings.
+sudo apt install -y python3-picamera2
 
-# On a laptop (webcam / static frame testing)
+# Recreate the venv to inherit the system picamera2 package:
+python3 -m venv venv --system-site-packages
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Then install YOLO (pip is fine for this one):
+pip install ultralytics opencv-python
+
+# On a laptop (mock camera, no Pi required)
 pip install ultralytics opencv-python
 ```
 
