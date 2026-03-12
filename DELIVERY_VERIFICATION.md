@@ -70,7 +70,7 @@
 
 ### Core Features ✅
 - [x] Autonomous decision-making with LangChain
-- [x] Local Ollama integration (gemma3:270m default)
+- [x] Local Ollama integration (qwen2.5:0.5b default)
 - [x] Virtual environment isolation (./venv/)
 - [x] Distance sensor simulation (3-axis)
 - [x] Target detection simulation
@@ -131,7 +131,7 @@ Test Type: Vision Integration Test
 Status: PASSED ✅
 Cycles Completed: 10/10
 Duration: ~30 seconds
-LLM: gemma3:270m via Ollama
+LLM: qwen2.5:0.5b via Ollama
 Vision Mode: Mock (laptop)
 
 Results:

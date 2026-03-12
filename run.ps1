@@ -81,7 +81,7 @@ if ($llmProvider -eq "ollama" -and -Not $NoOllama) {
     Write-Host ""
     Write-Host "Step 3: Checking model availability..." -ForegroundColor Yellow
     $models = ollama list 2>&1
-    $modelToUse = if ($Model) { $Model } else { "gemma3:270m" }
+    $modelToUse = if ($Model) { $Model } else { "qwen2.5:0.5b" }
     
     if ($models -match [regex]::Escape($modelToUse)) {
         Write-Host "Model '$modelToUse' is available" -ForegroundColor Green

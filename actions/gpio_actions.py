@@ -5,6 +5,8 @@ This module implements the RobotActions interface using real GPIO-controlled
 motors on Raspberry Pi 5, replacing CLI output with actual motor commands.
 """
 
+import time
+
 from actions.base import RobotActions
 from hardware.motors import MotorController
 
@@ -13,7 +15,7 @@ class GPIORobotActions(RobotActions):
     """
     Real hardware implementation of RobotActions using GPIO motors.
     
-    Controls 4-wheel robot with 2 L293D motor controllers via GPIO pins.
+    Controls 4-wheel robot with 2 TB6612FNG motor controllers via GPIO pins.
     """
     
     def __init__(self, default_speed: int = 70):
@@ -49,6 +51,7 @@ class GPIORobotActions(RobotActions):
         
         print(f"[ACTION] Moving forward {distance_cm} cm (~{duration:.1f}s)")
         self.motors.move_forward(speed=self.default_speed, duration=duration)
+        time.sleep(duration)  # wait for physical movement to complete
     
     def turn_left(self, degrees: int):
         """
@@ -68,6 +71,7 @@ class GPIORobotActions(RobotActions):
         
         print(f"[ACTION] Turning left {degrees} degrees (~{duration:.1f}s)")
         self.motors.turn_left(speed=self.default_speed, duration=duration)
+        time.sleep(duration)  # wait for physical movement to complete
     
     def turn_right(self, degrees: int):
         """
@@ -87,6 +91,7 @@ class GPIORobotActions(RobotActions):
         
         print(f"[ACTION] Turning right {degrees} degrees (~{duration:.1f}s)")
         self.motors.turn_right(speed=self.default_speed, duration=duration)
+        time.sleep(duration)  # wait for physical movement to complete
     
     def stop(self):
         """Stop all robot motors immediately."""

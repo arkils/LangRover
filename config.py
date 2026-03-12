@@ -14,7 +14,7 @@ class Config:
     
     # Ollama Settings
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gemma3:270m")  # Default model
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen2.5:0.5b")  # Default model
     
     # Hailo AI HAT+ / AI HAT+ 2 Settings (for Raspberry Pi 5)
     # Supported HAILO_DEVICE: "hailo8l" (13 TOPS), "hailo8" (26 TOPS), "hailo10h" (40 TOPS, AI HAT+ 2)

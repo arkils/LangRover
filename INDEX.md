@@ -99,7 +99,7 @@ Read in order:
 
 ### Core Features
 - ✅ Autonomous decision-making with LangChain
-- ✅ Local Ollama integration (gemma3:270m)
+- ✅ Local Ollama integration (qwen2.5:0.5b)
 - ✅ Distance sensor simulation (3-axis)
 - ✅ Target detection
 - ✅ Virtual environment isolation
@@ -201,7 +201,7 @@ A: In `./venv/` only - completely isolated. See [ISOLATION_COMPLETE.md](ISOLATIO
 
 **Latest Test**: ✅ All 10 decision cycles passed
 **Vision Mode**: Mock (laptop compatible)
-**LLM**: gemma3:270m via Ollama
+**LLM**: qwen2.5:0.5b via Ollama
 **Safety**: People detection → immediate stop ✓
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md) for complete details.

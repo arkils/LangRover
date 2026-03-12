@@ -15,7 +15,7 @@ def _check_ollama_connection(base_url: str = "http://localhost:11434") -> bool:
         return False
 
 
-def get_llm(provider: str = "openai"):
+def get_llm(provider: str = "openai", ollama_model: str | None = None):
     """
     Get a LangChain *chat* model instance that supports ``bind_tools()``.
 
@@ -56,7 +56,7 @@ def get_llm(provider: str = "openai"):
             )
 
         ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        ollama_model = os.getenv("OLLAMA_MODEL", "gemma3:270m")
+        ollama_model = ollama_model or os.getenv("OLLAMA_MODEL", "qwen2.5:0.5b")
 
         print(f"Checking Ollama connection at {ollama_base_url}...")
         if not _check_ollama_connection(ollama_base_url):

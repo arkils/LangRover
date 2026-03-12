@@ -379,7 +379,7 @@ hailortcli fw-control identify
 ✅ Raspberry Pi Active Cooler
 ✅ Pi Camera 3
 ✅ 4× Ultrasonic sensors
-✅ 2× L293D motor drivers
+✅ 2× TB6612FNG motor drivers
 ✅ TinyLlama 1.1B Q4_K_M local model
 ```
 

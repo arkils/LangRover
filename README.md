@@ -36,7 +36,7 @@ LangRover separates the robot's cognitive layer (LangChain agent) from the hardw
 │  Robotic Hardware                                │
 │  - 4x DC Motors                                  │
 │  - 4x HC-SR04 Ultrasonic Sensors                 │
-│  - L293D Motor Driver ICs                        │
+│  - TB6612FNG Motor Driver ICs                     │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -104,7 +104,7 @@ LangRover separates the robot's cognitive layer (LangChain agent) from the hardw
 
 - Python 3.10+
 - Ollama (for local models) - Download from [ollama.ai](https://ollama.ai)
-- gemma3:270m model installed locally
+- qwen2.5:0.5b model installed locally
 
 ### Quick Start (Recommended)
 
@@ -119,7 +119,7 @@ This will:
 - ✓ Create isolated virtual environment in `./venv/`
 - ✓ Install all dependencies locally
 - ✓ Check Ollama installation
-- ✓ Pull gemma3:270m model (if not already installed)
+- ✓ Pull qwen2.5:0.5b model (if not already installed)
 
 **On Linux/macOS (bash):**
 ```bash
@@ -145,7 +145,7 @@ chmod +x run.sh
 The `run` script will:
 1. ✓ Activate the virtual environment
 2. ✓ Check if Ollama is running (start it if needed)
-3. ✓ Verify gemma3:270m model exists
+3. ✓ Verify qwen2.5:0.5b model exists
 4. ✓ Run the robot simulation
 
 **Everything happens automatically!** No manual setup needed.
@@ -199,7 +199,7 @@ deactivate
 
 ## Usage
 
-### Default: Local Ollama with gemma3:270m
+### Default: Local Ollama with qwen2.5:0.5b
 
 The project is configured to use your local Ollama instance by default. No API keys needed!
 

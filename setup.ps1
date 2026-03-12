@@ -1,6 +1,6 @@
 # LangRover Setup Script for Windows PowerShell
 # This script sets up the project with an isolated virtual environment
-# and manages the Ollama service for the gemma3:270m model
+# and manages the Ollama service for the qwen2.5:0.5b model
 
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host "LangRover - Complete Setup" -ForegroundColor Cyan
@@ -51,19 +51,19 @@ if ($null -eq $ollama) {
 } else {
     Write-Host "✓ Ollama is installed" -ForegroundColor Green
     
-    # Step 6: Check if gemma3:270m model is available
-    Write-Host "`nStep 6: Checking for gemma3:270m model..." -ForegroundColor Yellow
+    # Step 6: Check if qwen2.5:0.5b model is available
+    Write-Host "`nStep 6: Checking for qwen2.5:0.5b model..." -ForegroundColor Yellow
     $models = ollama list 2>&1
-    if ($models -match "gemma3:270m") {
-        Write-Host "✓ gemma3:270m model is available" -ForegroundColor Green
+    if ($models -match "qwen2.5:0.5b") {
+        Write-Host "✓ qwen2.5:0.5b model is available" -ForegroundColor Green
     } else {
-        Write-Host "⚠ gemma3:270m model not found locally" -ForegroundColor Yellow
+        Write-Host "⚠ qwen2.5:0.5b model not found locally" -ForegroundColor Yellow
         Write-Host "  Pulling model (this may take a few minutes)..." -ForegroundColor Gray
-        ollama pull gemma3:270m
+        ollama pull qwen2.5:0.5b
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✓ gemma3:270m model pulled successfully" -ForegroundColor Green
+            Write-Host "✓ qwen2.5:0.5b model pulled successfully" -ForegroundColor Green
         } else {
-            Write-Host "✗ Failed to pull gemma3:270m model" -ForegroundColor Red
+            Write-Host "✗ Failed to pull qwen2.5:0.5b model" -ForegroundColor Red
         }
     }
 }
@@ -74,7 +74,7 @@ Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Configuration:" -ForegroundColor Cyan
 Write-Host "  LLM Provider: Ollama (default)" -ForegroundColor Gray
-Write-Host "  Model: gemma3:270m" -ForegroundColor Gray
+Write-Host "  Model: qwen2.5:0.5b" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "1. Start Ollama service (in separate terminal):"

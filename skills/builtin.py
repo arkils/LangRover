@@ -84,27 +84,25 @@ class DogGreetingSkill(Skill):
 
 
 # ---------------------------------------------------------------------------
-# Safety skills
+# People greeting
 # ---------------------------------------------------------------------------
 
-class PersonSafetySkill(Skill):
+class PersonGreetingSkill(Skill):
     """
-    Immediately stop when a person is detected.
+    Perform a greeting interaction when a person is detected.
 
-    The agent also hard-codes a safety check before the LLM is even consulted,
-    but this skill makes the behaviour explicit and visible in tool logs.
+    Sequence: stop → wiggle left/right → continue
     """
 
     @property
     def name(self) -> str:
-        return "person_safety_stop"
+        return "greet_person"
 
     @property
     def description(self) -> str:
         return (
-            "Immediately stop all robot movement when a person is detected nearby. "
-            "ALWAYS call this skill when people_count > 0 or 'person' is in detected objects. "
-            "Human safety is the absolute top priority."
+            "Perform a greeting interaction when a person is detected. "
+            "Use this skill when 'person' appears in detected objects or people_count > 0."
         )
 
     @property
@@ -112,9 +110,13 @@ class PersonSafetySkill(Skill):
         return ["person"]
 
     def execute(self, context: SkillContext) -> str:
-        context.robot_actions.stop()
-        print("[SAFETY] Person detected — robot stopped for safety.")
-        return "Safety stop executed due to person detection"
+        actions = context.robot_actions
+        print("[SKILL] Hello there! =^_^=")
+        actions.stop()
+        actions.turn_left(20)
+        actions.turn_right(40)
+        actions.turn_left(20)
+        return "Person greeted with a friendly wiggle"
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +126,7 @@ class PersonSafetySkill(Skill):
 def get_default_skills() -> List[Skill]:
     """Return the default set of built-in skills to register at startup."""
     return [
-        PersonSafetySkill(),
+        PersonGreetingSkill(),
         CatGreetingSkill(),
         DogGreetingSkill(),
     ]

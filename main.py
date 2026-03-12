@@ -57,7 +57,7 @@ def main() -> None:
         print("[ACTIONS] Using CLI simulation")
 
     # Create agent
-    agent = create_agent(robot_actions, skill_registry, llm_provider=config.LLM_PROVIDER)
+    agent = create_agent(robot_actions, skill_registry, llm_provider=config.LLM_PROVIDER, ollama_model=config.OLLAMA_MODEL)
 
     # Main control loop
     try:

@@ -64,6 +64,7 @@ def create_agent(
     robot_actions: RobotActions,
     skill_registry: SkillRegistry,
     llm_provider: str = "ollama",
+    ollama_model: str | None = None,
 ) -> dict:
     """
     Create the robot agent.
@@ -72,11 +73,12 @@ def create_agent(
         robot_actions: Hardware or CLI action implementation.
         skill_registry: Registry of registered robot skills.
         llm_provider: ``"openai"`` or ``"ollama"``.
+        ollama_model: Ollama model name; overrides ``OLLAMA_MODEL`` env var.
 
     Returns:
         Agent dict passed to ``decide_and_act()`` each cycle.
     """
-    llm = get_llm(llm_provider)
+    llm = get_llm(llm_provider, ollama_model=ollama_model)
     return {
         "llm": llm,
         "robot_actions": robot_actions,
@@ -112,10 +114,8 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
     # ------------------------------------------------------------------
     # 1. Hard safety check — runs BEFORE consulting the LLM
     # ------------------------------------------------------------------
-    if world_state.vision.people_count > 0:
-        print("[SAFETY] People detected! Stopping immediately — skipping LLM.")
-        robot_actions.stop()
-        return
+    # Note: people are friendly — robot greets them via greet_person skill.
+    # Only obstacle distances trigger hard safety blocks.
 
     # ------------------------------------------------------------------
     # 2. Build tools
@@ -194,7 +194,7 @@ def _build_human_prompt(world_state: WorldState, skill_registry: SkillRegistry) 
             )
         if v.people_count:
             vision_lines.append(
-                f"  - PEOPLE DETECTED: {v.people_count} person(s) — use person_safety_stop"
+                f"  - PEOPLE DETECTED: {v.people_count} person(s) — use greet_person"
             )
         if v.motion_detected:
             vision_lines.append("  - Motion detected")

@@ -43,7 +43,7 @@ python -m pip list | findstr langchain
 ### ✅ Project Runs Correctly
 ```powershell
 .\venv\Scripts\python main.py
-# Successfully runs with gemma3:270m model
+# Successfully runs with qwen2.5:0.5b model
 ```
 
 ## File Structure

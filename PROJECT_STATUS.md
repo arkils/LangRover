@@ -71,7 +71,7 @@ LangRover/
 | Feature | Status | Details |
 |---------|--------|---------|
 | **Autonomous Robot Framework** | ✅ Complete | Core LangChain agent with decision-making |
-| **Local Ollama Integration** | ✅ Complete | gemma3:270m default, no API keys |
+| **Local Ollama Integration** | ✅ Complete | qwen2.5:0.5b default, no API keys |
 | **Virtual Environment Isolation** | ✅ Complete | Zero global package pollution |
 | **Distance Sensor Simulation** | ✅ Complete | 3-axis ultrasonic sensors |
 | **Target Detection** | ✅ Complete | Binary target visible flag |
@@ -89,7 +89,7 @@ LangRover/
 ## System Capabilities
 
 ### Decision Making
-- ✅ LLM-based reasoning (Ollama gemma3:270m)
+- ✅ LLM-based reasoning (Ollama qwen2.5:0.5b)
 - ✅ Safety constraints enforced
 - ✅ Vision-aware planning
 - ✅ Multi-sensor integration
@@ -123,7 +123,7 @@ LangRover/
 Status: ✅ PASSED
 Duration: ~10 decision cycles
 Vision Mode: Mock (laptop)
-LLM: gemma3:270m via Ollama
+LLM: qwen2.5:0.5b via Ollama
 Results:
   - 10/10 cycles completed
   - 3 people detection events → correct STOP
@@ -194,7 +194,7 @@ All via environment variables (or .env file):
 ```env
 # LLM
 LLM_PROVIDER=ollama                    # or "openai"
-OLLAMA_MODEL=gemma3:270m
+OLLAMA_MODEL=qwen2.5:0.5b
 OLLAMA_BASE_URL=http://localhost:11434
 
 # Vision

@@ -8,7 +8,7 @@ The system now uses a 3-tier architecture:
 
 1. **Raspberry Pi 5** - High-level intelligence (LLM, vision processing, decision making)
 2. **ESP32 Microcontroller** - Low-level hardware control (motors, sensors)
-3. **Robotic Hardware** - Motors (L293D drivers) and Sensors (HC-SR04 ultrasonic)
+3. **Robotic Hardware** - Motors (TB6612FNG drivers) and Sensors (HC-SR04 ultrasonic)
 
 **Communication Flow:**
 ```
@@ -35,12 +35,12 @@ Raspberry Pi 5 ←→ USB Serial (CDC) ←→ ESP32 ←→ GPIO ←→ Motors/Se
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  LLM Agent (LangChain tool calling)                      │  │
 │  │  - Reads: WorldState (sensors + vision)                 │  │
-│  │  - Consults: gemma3:270m / OpenAI via bind_tools()      │  │
+│  │  - Consults: qwen2.5:0.5b / OpenAI via bind_tools()      │  │
 │  │  - Navigation tools: move_forward | turn_left |         │  │
 │  │    turn_right | stop                                     │  │
-│  │  - Skill tools: greet_cat | greet_dog |                 │  │
-│  │    person_safety_stop | <your custom skills>            │  │
-│  │  - Safety Check: People detected → STOP immediately    │  │
+│  │  - Skill tools: greet_person | greet_cat | greet_dog |          │  │
+│  │    <your custom skills>                                   │  │
+│  │  - Safety Check: Obstacle distance → avoid               │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                            ↓                                    │
 │  ┌──────────────────────────────────────────────────────────┐  │
@@ -55,7 +55,7 @@ Raspberry Pi 5 ←→ USB Serial (CDC) ←→ ESP32 ←→ GPIO ←→ Motors/Se
 │  │  - Robot constraints & safety rules                      │  │
 │  │  - Vision-aware behavior strategy                        │  │
 │  │  - RELEVANT SKILLS hint injected per cycle              │  │
-│  │  - PEOPLE DETECTION = HIGHEST PRIORITY                  │  │
+│  │  - People detected → greet_person skill                  │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
@@ -154,10 +154,8 @@ REPEAT (10 cycles):
   │   └─ Return WorldState with vision data
   │
   ├─ [brain/agent.py] decide_and_act(world_state)
-  │   ├─ SAFETY: people_count > 0? → robot_actions.stop(); return
-  │   │
   │   ├─ Build nav tools   (move_forward, turn_left, turn_right, stop)
-  │   ├─ Build skill tools (greet_cat, greet_dog, person_safety_stop, ...)
+  │   ├─ Build skill tools (greet_cat, greet_dog, greet_person, ...)
   │   ├─ Inject RELEVANT SKILLS hint for detected objects
   │   ├─ Call llm.bind_tools(nav_tools + skill_tools).invoke(messages)
   │   ├─ If tool_calls in response → execute each tool in order
@@ -186,11 +184,10 @@ END
        ↓
 ┌──────────────┐
 │ AGENT        │ Process:
-└──────────────┘ 1. Hard safety check (people → stop, skip LLM)
-       │         2. Build nav tools + skill tools
-       │         3. Inject RELEVANT SKILLS hint into prompt
-       │         4. Call LLM with bind_tools()
-       │         5. Execute returned tool calls
+└──────────────┘ 1. Build nav tools + skill tools
+       │         2. Inject RELEVANT SKILLS hint into prompt
+       │         3. Call LLM with bind_tools()
+       │         4. Execute returned tool calls
        ↓
 ┌──────────────┐
 │ ACTION /     │ Either a navigation primitive:
@@ -205,7 +202,7 @@ END
 skills/
 ├── base.py       Skill ABC + SkillContext dataclass
 ├── registry.py   SkillRegistry — register, lookup, convert to LangChain tools
-├── builtin.py    CatGreetingSkill, DogGreetingSkill, PersonSafetySkill
+├── builtin.py    CatGreetingSkill, DogGreetingSkill, PersonGreetingSkill
 └── __init__.py   Public API
 ```
 
@@ -264,20 +261,17 @@ Camera Frame
 ```
 worldState received with vision data
          ↓
-Check: people_count > 0?
+Check: front_distance_cm < 30?
          ↓
-    ┌─YES──┴──NO──┐
+    ┌─YES──┬──NO──┐
     ↓             ↓
-STOP      Continue to LLM
-(Immediate)
-    ↓
-Return
-(no further decision)
+Block         Continue to LLM
+move_forward
     ↓
     ├──────────────┐
     ↓              ↓
-Execute     Consult LLM
-STOP        for decision
+Turn/Stop    Consult LLM
+             for decision
 ```
 
 ## ESP32 Communication Protocol
@@ -350,7 +344,7 @@ config.py defaults (lowest priority)
          ↓
 Final Configuration
 ├─ LLM_PROVIDER (ollama/openai)
-├─ OLLAMA_MODEL (gemma3:270m)
+├─ OLLAMA_MODEL (qwen2.5:0.5b)
 ├─ USE_REAL_CAMERA (false = mock)
 ├─ USE_REAL_VISION (false = mock)
 └─ YOLO_MODEL (nano/small/medium/large)
@@ -372,7 +366,7 @@ Production (Raspberry Pi + ESP32)
 ├─ Pi Camera 3
 ├─ YOLO Vision Detector
 ├─ ESP32 via USB Serial
-│  ├─ L293D Motor Drivers
+│  ├─ TB6612FNG Motor Drivers
 │  ├─ 4x DC Motors
 │  └─ 4x HC-SR04 Ultrasonic Sensors
 ├─ Local Ollama (or cloud LLM)
@@ -393,7 +387,7 @@ Hardware Stack:
 └─────────┬───────────┘
           │ GPIO
 ┌─────────┴───────────┐
-│  Motor Drivers      │ (L293D x2)
+│  Motor Drivers      │ (TB6612FNG x2)
 └─────────┬───────────┘
           │
 ┌─────────┴───────────┐
