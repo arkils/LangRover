@@ -120,10 +120,6 @@ bool otaEnabled = false;
 // PWM Configuration
 #define PWM_FREQ      20000   // 20kHz PWM frequency (recommended for TB6612FNG)
 #define PWM_RESOLUTION 8      // 8-bit resolution (0-255)
-#define PWM_CHANNEL_FL 0      // PWM channel for front left motor
-#define PWM_CHANNEL_FR 1      // PWM channel for front right motor
-#define PWM_CHANNEL_RL 2      // PWM channel for rear left motor
-#define PWM_CHANNEL_RR 3      // PWM channel for rear right motor
 
 // ==================== FUNCTION PROTOTYPES ====================
 
@@ -271,16 +267,11 @@ void setupMotors() {
   pinMode(MOTOR_DRIVER_1_STBY, OUTPUT);
   pinMode(MOTOR_DRIVER_2_STBY, OUTPUT);
   
-  // Configure PWM for each motor independently
-  ledcSetup(PWM_CHANNEL_FL, PWM_FREQ, PWM_RESOLUTION);
-  ledcSetup(PWM_CHANNEL_FR, PWM_FREQ, PWM_RESOLUTION);
-  ledcSetup(PWM_CHANNEL_RL, PWM_FREQ, PWM_RESOLUTION);
-  ledcSetup(PWM_CHANNEL_RR, PWM_FREQ, PWM_RESOLUTION);
-  
-  ledcAttachPin(MOTOR_FL_PWM, PWM_CHANNEL_FL);
-  ledcAttachPin(MOTOR_FR_PWM, PWM_CHANNEL_FR);
-  ledcAttachPin(MOTOR_RL_PWM, PWM_CHANNEL_RL);
-  ledcAttachPin(MOTOR_RR_PWM, PWM_CHANNEL_RR);
+  // Configure PWM for each motor independently (ESP32 Arduino core v3 API)
+  ledcAttach(MOTOR_FL_PWM, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttach(MOTOR_FR_PWM, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttach(MOTOR_RL_PWM, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttach(MOTOR_RR_PWM, PWM_FREQ, PWM_RESOLUTION);
   
   // Enable both drivers (STBY HIGH)
   digitalWrite(MOTOR_DRIVER_1_STBY, HIGH);
@@ -526,10 +517,10 @@ void motorForward(int speed, float duration) {
   digitalWrite(MOTOR_RR_IN2, LOW);
   
   // Set speed for each motor
-  ledcWrite(PWM_CHANNEL_FL, pwm);
-  ledcWrite(PWM_CHANNEL_FR, pwm);
-  ledcWrite(PWM_CHANNEL_RL, pwm);
-  ledcWrite(PWM_CHANNEL_RR, pwm);
+  ledcWrite(MOTOR_FL_PWM, pwm);
+  ledcWrite(MOTOR_FR_PWM, pwm);
+  ledcWrite(MOTOR_RL_PWM, pwm);
+  ledcWrite(MOTOR_RR_PWM, pwm);
   
   // If duration specified, run for that time then stop
   if (duration > 0) {
@@ -553,10 +544,10 @@ void motorBackward(int speed, float duration) {
   digitalWrite(MOTOR_RR_IN2, HIGH);
   
   // Set speed for each motor
-  ledcWrite(PWM_CHANNEL_FL, pwm);
-  ledcWrite(PWM_CHANNEL_FR, pwm);
-  ledcWrite(PWM_CHANNEL_RL, pwm);
-  ledcWrite(PWM_CHANNEL_RR, pwm);
+  ledcWrite(MOTOR_FL_PWM, pwm);
+  ledcWrite(MOTOR_FR_PWM, pwm);
+  ledcWrite(MOTOR_RL_PWM, pwm);
+  ledcWrite(MOTOR_RR_PWM, pwm);
   
   // If duration specified, run for that time then stop
   if (duration > 0) {
@@ -580,10 +571,10 @@ void motorTurnLeft(int speed, float duration) {
   digitalWrite(MOTOR_RR_IN2, LOW);
   
   // Set speed for each motor
-  ledcWrite(PWM_CHANNEL_FL, pwm);
-  ledcWrite(PWM_CHANNEL_FR, pwm);
-  ledcWrite(PWM_CHANNEL_RL, pwm);
-  ledcWrite(PWM_CHANNEL_RR, pwm);
+  ledcWrite(MOTOR_FL_PWM, pwm);
+  ledcWrite(MOTOR_FR_PWM, pwm);
+  ledcWrite(MOTOR_RL_PWM, pwm);
+  ledcWrite(MOTOR_RR_PWM, pwm);
   
   // If duration specified, run for that time then stop
   if (duration > 0) {
@@ -607,10 +598,10 @@ void motorTurnRight(int speed, float duration) {
   digitalWrite(MOTOR_RR_IN2, HIGH);
   
   // Set speed for each motor
-  ledcWrite(PWM_CHANNEL_FL, pwm);
-  ledcWrite(PWM_CHANNEL_FR, pwm);
-  ledcWrite(PWM_CHANNEL_RL, pwm);
-  ledcWrite(PWM_CHANNEL_RR, pwm);
+  ledcWrite(MOTOR_FL_PWM, pwm);
+  ledcWrite(MOTOR_FR_PWM, pwm);
+  ledcWrite(MOTOR_RL_PWM, pwm);
+  ledcWrite(MOTOR_RR_PWM, pwm);
   
   // If duration specified, run for that time then stop
   if (duration > 0) {
@@ -631,10 +622,10 @@ void motorStop() {
   digitalWrite(MOTOR_RR_IN2, LOW);
   
   // Set PWM to 0
-  ledcWrite(PWM_CHANNEL_FL, 0);
-  ledcWrite(PWM_CHANNEL_FR, 0);
-  ledcWrite(PWM_CHANNEL_RL, 0);
-  ledcWrite(PWM_CHANNEL_RR, 0);
+  ledcWrite(MOTOR_FL_PWM, 0);
+  ledcWrite(MOTOR_FR_PWM, 0);
+  ledcWrite(MOTOR_RL_PWM, 0);
+  ledcWrite(MOTOR_RR_PWM, 0);
 }
 
 // ==================== SENSOR READING ====================
