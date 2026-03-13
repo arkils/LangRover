@@ -22,6 +22,8 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <WiFi.h>
+#include <ArduinoOTA.h>
 
 // ==================== GLOBAL STATE & SYNCHRONIZATION ====================
 
@@ -43,9 +45,21 @@ SemaphoreHandle_t sensorMutex;
 // Task handle for sensor task (Core 1)
 TaskHandle_t sensorTaskHandle = NULL;
 
+// OTA enabled flag — set to true after a successful Wi-Fi + OTA initialisation
+bool otaEnabled = false;
+
 // Sensor update interval in milliseconds
 #define SENSOR_UPDATE_INTERVAL 100  // 10Hz update rate
 #define SENSOR_REPORT_INTERVAL 500  // Report to serial every 500ms
+
+// ==================== OTA / WIFI CONFIGURATION ====================
+// Set WIFI_SSID to your network name to enable OTA firmware updates.
+// Leave WIFI_SSID as "" to skip Wi-Fi/OTA entirely (USB-only operation).
+#define WIFI_SSID                ""              // e.g. "MyNetwork"
+#define WIFI_PASSWORD            ""              // e.g. "MyPassword"
+#define OTA_HOSTNAME             "langrover-esp32"
+#define OTA_PASSWORD             ""              // Optional: require a password for OTA uploads
+#define WIFI_CONNECT_TIMEOUT_MS  10000          // ms to wait for Wi-Fi before giving up
 
 // ==================== PIN DEFINITIONS ====================
 //
@@ -134,6 +148,9 @@ void getSensorState(float* front, float* left, float* right, float* rear);
 // Core 1 task: Continuous sensor reading
 void sensorTask(void* parameter);
 
+// OTA / Wi-Fi initialisation
+void setupOTA();
+
 // ==================== SETUP ====================
 
 void setup() {
@@ -151,6 +168,7 @@ void setup() {
   // Setup hardware
   setupMotors();
   setupSensors();
+  setupOTA();
 
   // Create sensor reading task pinned to Core 1
   xTaskCreatePinnedToCore(
@@ -170,6 +188,9 @@ void setup() {
 // Handles serial communication and motor control
 
 void loop() {
+  // Service OTA when Wi-Fi is available (non-blocking)
+  if (otaEnabled) ArduinoOTA.handle();
+
   // Check for incoming serial data
   if (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
@@ -267,6 +288,93 @@ void setupMotors() {
   
   // Initialize motors in stopped state
   motorStop();
+}
+
+// ==================== OTA SETUP ====================
+
+void setupOTA() {
+  if (strlen(WIFI_SSID) == 0) {
+    Serial.println("{\"type\":\"info\",\"message\":\"OTA disabled — no WIFI_SSID configured\"}");
+    return;
+  }
+
+  JsonDocument infoDoc;
+  infoDoc["type"] = "info";
+  infoDoc["message"] = "Connecting to Wi-Fi";
+  infoDoc["ssid"] = WIFI_SSID;
+  serializeJson(infoDoc, Serial);
+  Serial.println();
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  unsigned long startMs = millis();
+  while (WiFi.status() != WL_CONNECTED) {
+    if (millis() - startMs > WIFI_CONNECT_TIMEOUT_MS) {
+      Serial.println("{\"type\":\"error\",\"message\":\"Wi-Fi connection timed out — OTA unavailable\"}");
+      return;
+    }
+    delay(200);
+  }
+
+  ArduinoOTA.setHostname(OTA_HOSTNAME);
+  if (strlen(OTA_PASSWORD) > 0) {
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+  }
+
+  ArduinoOTA.onStart([]() {
+    // Safety first: stop all motors before overwriting flash
+    motorStop();
+    String updateType = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
+    JsonDocument doc;
+    doc["type"] = "ota_start";
+    doc["update_type"] = updateType;
+    serializeJson(doc, Serial);
+    Serial.println();
+  });
+
+  ArduinoOTA.onEnd([]() {
+    Serial.println("{\"type\":\"ota_end\",\"message\":\"Update complete — rebooting\"}");
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    // Report only on each 10% boundary to avoid flooding Serial
+    static unsigned int lastPct = 101;  // sentinel: force first report
+    unsigned int pct = (progress * 100) / total;
+    if (pct / 10 != lastPct / 10) {
+      lastPct = pct;
+      JsonDocument doc;
+      doc["type"] = "ota_progress";
+      doc["percent"] = pct;
+      serializeJson(doc, Serial);
+      Serial.println();
+    }
+  });
+
+  ArduinoOTA.onError([](ota_error_t error) {
+    const char* errStr = "Unknown error";
+    if      (error == OTA_AUTH_ERROR)    errStr = "Auth failed";
+    else if (error == OTA_BEGIN_ERROR)   errStr = "Begin failed";
+    else if (error == OTA_CONNECT_ERROR) errStr = "Connect failed";
+    else if (error == OTA_RECEIVE_ERROR) errStr = "Receive failed";
+    else if (error == OTA_END_ERROR)     errStr = "End failed";
+    JsonDocument doc;
+    doc["type"] = "ota_error";
+    doc["message"] = errStr;
+    serializeJson(doc, Serial);
+    Serial.println();
+  });
+
+  ArduinoOTA.begin();
+  otaEnabled = true;
+
+  JsonDocument readyDoc;
+  readyDoc["type"] = "info";
+  readyDoc["message"] = "OTA ready";
+  readyDoc["hostname"] = OTA_HOSTNAME;
+  readyDoc["ip"] = WiFi.localIP().toString();
+  serializeJson(readyDoc, Serial);
+  Serial.println();
 }
 
 // ==================== SENSOR SETUP ====================
@@ -381,6 +489,20 @@ void processCommand(JsonDocument& doc) {
     }
 
     sendError("Invalid sensor type");
+    return;
+  }
+
+  // Handle OTA status query
+  if (strcmp(cmd, "ota_status") == 0) {
+    JsonDocument resp;
+    resp["type"] = "ota_status";
+    resp["enabled"] = otaEnabled;
+    if (otaEnabled) {
+      resp["hostname"] = OTA_HOSTNAME;
+      resp["ip"] = WiFi.localIP().toString();
+    }
+    serializeJson(resp, Serial);
+    Serial.println();
     return;
   }
 
