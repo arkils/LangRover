@@ -182,17 +182,8 @@ or omit the `"id"` field entirely
 
 #### Option 2: PlatformIO (Recommended)
 1. Install VS Code and PlatformIO extension
-2. Create new project with ESP32 board
-3. Add to `platformio.ini`:
-   ```ini
-   [env:esp32dev]
-   platform = espressif32
-   board = esp32dev
-   framework = arduino
-   lib_deps = 
-       bblanchon/ArduinoJson@^7.0.0
-   monitor_speed = 115200
-   ```
+2. Open the `esp32_firmware_template/` folder as a PlatformIO project
+3. The `platformio.ini` is already configured — just build and upload
 
 ### Firmware Implementation Structure
 
@@ -488,7 +479,7 @@ void getSensorState(float* front, float* left, float* right, float* rear) {
 
 ## Reference Implementation
 
-See `esp32_firmware_template.ino` for a complete reference implementation.
+See `esp32_firmware_template/esp32_firmware_template.ino` for a complete reference implementation.
 
 ## Additional Resources
 

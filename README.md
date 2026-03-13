@@ -549,7 +549,7 @@ TB6612FNG DRIVER 2 (Rear Motors):
 **Quick Start:**
 1. **[TB6612FNG_SETUP.md](TB6612FNG_SETUP.md)** - TB6612FNG motor driver setup and configuration
 2. **[ESP32_FIRMWARE.md](ESP32_FIRMWARE.md)** - Complete ESP32 firmware guide
-3. **[esp32_firmware_template.ino](esp32_firmware_template.ino)** - Ready-to-upload Arduino code
+3. **[esp32_firmware_template/esp32_firmware_template.ino](esp32_firmware_template/esp32_firmware_template.ino)** - Ready-to-upload Arduino code
 
 **Detailed Documentation:**
 - **[HARDWARE_SETUP.md](HARDWARE_SETUP.md)** - Full wiring guide with diagrams
@@ -564,7 +564,7 @@ TB6612FNG DRIVER 2 (Rear Motors):
 # 1. Install Arduino IDE 2.x
 # 2. Add ESP32 board support
 # 3. Install ArduinoJson library
-# 4. Open esp32_firmware_template.ino
+# 4. Open esp32_firmware_template/esp32_firmware_template.ino
 # 5. Upload to ESP32
 
 # Or use PlatformIO (recommended)

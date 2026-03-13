@@ -50,7 +50,7 @@ Motors & Sensors
    - Communication protocol specification
    - Setup and troubleshooting guide
 
-3. **`esp32_firmware_template.ino`**
+3. **`esp32_firmware_template/esp32_firmware_template.ino`**
    - Ready-to-use Arduino firmware for ESP32
    - Motor control implementation with TB6612FNG
    - Sensor reading implementation
@@ -144,7 +144,7 @@ pip install -r requirements.txt
 1. Install Arduino IDE 2.x
 2. Add ESP32 board support
 3. Install ArduinoJson library
-4. Open `esp32_firmware_template.ino`
+4. Open `esp32_firmware_template/esp32_firmware_template.ino`
 5. Select your ESP32 board
 6. Upload firmware
 
@@ -307,7 +307,7 @@ See `ESP32_FIRMWARE.md` for complete protocol specification.
 ## Additional Resources
 
 - `ESP32_FIRMWARE.md` - Complete firmware documentation
-- `esp32_firmware_template.ino` - Arduino firmware template
+- `esp32_firmware_template/esp32_firmware_template.ino` - Arduino firmware template
 - `ARCHITECTURE.md` - System architecture details
 - `hardware/esp32_serial.py` - Serial communication implementation
 
