@@ -14,10 +14,13 @@ This design ensures motors respond instantly while sensors update autonomously i
 
 ```
 Raspberry Pi → [USB Serial] → ESP32 Core 0 (Motors + Commands)
-                                  ↕ (Thread-Safe Mutex)
+                                  ↕ sensorMutex (sensor state)
                               ESP32 Core 1 (Sensors + State)
                                   ↓
                               [GPIO] → Motors/Sensors
+
+                              serialMutex guards all Serial writes
+                              (Core 0 responses & Core 1 broadcasts)
 ```
 
 ## Hardware Connections
@@ -160,6 +163,28 @@ or omit the `"id"` field entirely
 {"type": "error", "message": "Invalid command"}
 ```
 
+## WiFi / OTA Configuration
+
+Over-the-Air (OTA) firmware updates are optional — USB upload always works without Wi-Fi.
+
+WiFi credentials are stored in `secrets.h`, which is **gitignored** so passwords are never committed.
+
+```bash
+# One-time setup:
+cp esp32_firmware_template/secrets.h.example esp32_firmware_template/secrets.h
+# Then edit secrets.h and fill in your SSID / password.
+```
+
+If `secrets.h` is absent (e.g. a fresh clone), the sketch still compiles via `#if __has_include("secrets.h")` and OTA is simply disabled — the robot operates normally over USB.
+
+| Macro | Purpose | Default in example |
+|-------|---------|-------------------|
+| `WIFI_SSID` | Network name — empty disables Wi-Fi/OTA | `""` |
+| `WIFI_PASSWORD` | Network password | `""` |
+| `OTA_PASSWORD` | Password for OTA uploads (leave empty to skip) | `""` |
+
+---
+
 ## Arduino/PlatformIO Setup
 
 ### Required Libraries
@@ -204,8 +229,9 @@ struct SensorState {
 };
 
 volatile SensorState sensorState;
-SemaphoreHandle_t sensorMutex;  // FreeRTOS mutex for thread-safety
-TaskHandle_t sensorTaskHandle;  // Core 1 task handle
+SemaphoreHandle_t sensorMutex;   // FreeRTOS mutex for thread-safe sensor state access
+SemaphoreHandle_t serialMutex;   // FreeRTOS mutex for thread-safe Serial writes
+TaskHandle_t sensorTaskHandle;   // Core 1 task handle
 
 // Motor control functions (Core 0)
 void motorForward(int speed, float duration);
@@ -228,8 +254,9 @@ void sendAllSensorData();
 void setup() {
     Serial.begin(115200);
     
-    // Create mutex for thread-safe sensor access
-    sensorMutex = xSemaphoreCreateMutex();
+    // Create mutexes for thread-safe access
+    sensorMutex = xSemaphoreCreateMutex();  // guards shared sensor state
+    serialMutex = xSemaphoreCreateMutex();  // guards Serial writes from both cores
     
     // Initialize GPIO pins
     setupMotors();
@@ -447,7 +474,7 @@ void getSensorState(float* front, float* left, float* right, float* rear) {
 3. **Watchdog**: Consider implementing a watchdog timer to reset if Pi stops communicating
 4. **Power Protection**: Ensure motor drivers have proper power supply and don't overload ESP32
 5. **Error Recovery**: Handle invalid commands gracefully
-6. **Thread Safety**: Always use mutex when accessing shared sensor data between cores
+6. **Thread Safety**: Always use `sensorMutex` when accessing shared sensor state between cores; always use `serialMutex` when writing to `Serial` from either core (prevents interleaved JSON output)
 
 ## Troubleshooting
 

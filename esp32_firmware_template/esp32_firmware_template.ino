@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LangRover ESP32 Firmware - Dual Core Edition
  * 
  * This firmware enables the ESP32 to act as a hardware controller for the LangRover robot.
@@ -25,6 +25,16 @@
 #include <WiFi.h>
 #include <ArduinoOTA.h>
 
+// WiFi credentials — copy secrets.h.example → secrets.h and fill in your values.
+// If secrets.h is absent (e.g. fresh clone), the sketch still compiles; OTA is simply disabled.
+#if __has_include("secrets.h")
+  #include "secrets.h"
+#else
+  #define WIFI_SSID      ""  // no secrets.h — OTA disabled
+  #define WIFI_PASSWORD  ""
+  #define OTA_PASSWORD   ""
+#endif
+
 // ==================== GLOBAL STATE & SYNCHRONIZATION ====================
 
 // Sensor data structure for thread-safe access
@@ -42,6 +52,9 @@ volatile SensorState sensorState = {-1.0, -1.0, -1.0, -1.0, 0};
 // Mutex for thread-safe sensor data access
 SemaphoreHandle_t sensorMutex;
 
+// Mutex for thread-safe Serial writes (Core 0 responses vs Core 1 sensor reports)
+SemaphoreHandle_t serialMutex;
+
 // Task handle for sensor task (Core 1)
 TaskHandle_t sensorTaskHandle = NULL;
 
@@ -53,12 +66,9 @@ bool otaEnabled = false;
 #define SENSOR_REPORT_INTERVAL 500  // Report to serial every 500ms
 
 // ==================== OTA / WIFI CONFIGURATION ====================
-// Set WIFI_SSID to your network name to enable OTA firmware updates.
-// Leave WIFI_SSID as "" to skip Wi-Fi/OTA entirely (USB-only operation).
-#define WIFI_SSID                ""              // e.g. "MyNetwork"
-#define WIFI_PASSWORD            ""              // e.g. "MyPassword"
+// WIFI_SSID, WIFI_PASSWORD and OTA_PASSWORD come from secrets.h (gitignored).
+// Leave WIFI_SSID as "" in secrets.h to skip Wi-Fi/OTA entirely (USB-only operation).
 #define OTA_HOSTNAME             "langrover-esp32"
-#define OTA_PASSWORD             ""              // Optional: require a password for OTA uploads
 #define WIFI_CONNECT_TIMEOUT_MS  10000          // ms to wait for Wi-Fi before giving up
 
 // ==================== PIN DEFINITIONS ====================
@@ -159,6 +169,12 @@ void setup() {
   if (sensorMutex == NULL) {
     Serial.println("{\"type\":\"error\",\"message\":\"Failed to create mutex\"}");
     while (1);  // Halt if mutex creation fails
+  }
+
+  serialMutex = xSemaphoreCreateMutex();
+  if (serialMutex == NULL) {
+    Serial.println("{\"type\":\"error\",\"message\":\"Failed to create serial mutex\"}");
+    while (1);
   }
 
   // Setup hardware
@@ -320,12 +336,18 @@ void setupOTA() {
     JsonDocument doc;
     doc["type"] = "ota_start";
     doc["update_type"] = updateType;
-    serializeJson(doc, Serial);
-    Serial.println();
+    if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+      serializeJson(doc, Serial);
+      Serial.println();
+      xSemaphoreGive(serialMutex);
+    }
   });
 
   ArduinoOTA.onEnd([]() {
-    Serial.println("{\"type\":\"ota_end\",\"message\":\"Update complete — rebooting\"}");
+    if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+      Serial.println("{\"type\":\"ota_end\",\"message\":\"Update complete — rebooting\"}");
+      xSemaphoreGive(serialMutex);
+    }
   });
 
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
@@ -337,8 +359,11 @@ void setupOTA() {
       JsonDocument doc;
       doc["type"] = "ota_progress";
       doc["percent"] = pct;
-      serializeJson(doc, Serial);
-      Serial.println();
+      if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+        serializeJson(doc, Serial);
+        Serial.println();
+        xSemaphoreGive(serialMutex);
+      }
     }
   });
 
@@ -352,8 +377,11 @@ void setupOTA() {
     JsonDocument doc;
     doc["type"] = "ota_error";
     doc["message"] = errStr;
-    serializeJson(doc, Serial);
-    Serial.println();
+    if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+      serializeJson(doc, Serial);
+      Serial.println();
+      xSemaphoreGive(serialMutex);
+    }
   });
 
   ArduinoOTA.begin();
@@ -405,8 +433,11 @@ void processCommand(JsonDocument& doc) {
   if (strcmp(cmd, "ping") == 0) {
     JsonDocument resp;
     resp["type"] = "pong";
-    serializeJson(resp, Serial);
-    Serial.println();
+    if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+      serializeJson(resp, Serial);
+      Serial.println();
+      xSemaphoreGive(serialMutex);
+    }
     return;
   }
 
@@ -492,8 +523,11 @@ void processCommand(JsonDocument& doc) {
       resp["hostname"] = OTA_HOSTNAME;
       resp["ip"] = WiFi.localIP().toString();
     }
-    serializeJson(resp, Serial);
-    Serial.println();
+    if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+      serializeJson(resp, Serial);
+      Serial.println();
+      xSemaphoreGive(serialMutex);
+    }
     return;
   }
 
@@ -688,8 +722,11 @@ void sendAck(bool success, const char* message) {
     doc["message"] = message;
   }
   
-  serializeJson(doc, Serial);
-  Serial.println();
+  if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+    serializeJson(doc, Serial);
+    Serial.println();
+    xSemaphoreGive(serialMutex);
+  }
 }
 
 void sendSensorData(const char* id, float distance) {
@@ -698,8 +735,11 @@ void sendSensorData(const char* id, float distance) {
   doc["id"] = id;
   doc["distance"] = distance;
   
-  serializeJson(doc, Serial);
-  Serial.println();
+  if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+    serializeJson(doc, Serial);
+    Serial.println();
+    xSemaphoreGive(serialMutex);
+  }
 }
 
 void sendAllSensorData() {
@@ -714,8 +754,11 @@ void sendAllSensorData() {
   doc["rear"] = rear;
   doc["timestamp"] = millis();
 
-  serializeJson(doc, Serial);
-  Serial.println();
+  if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+    serializeJson(doc, Serial);
+    Serial.println();
+    xSemaphoreGive(serialMutex);
+  }
 }
 
 void sendError(const char* message) {
@@ -723,6 +766,9 @@ void sendError(const char* message) {
   doc["type"] = "error";
   doc["message"] = message;
   
-  serializeJson(doc, Serial);
-  Serial.println();
+  if (xSemaphoreTake(serialMutex, portMAX_DELAY) == pdTRUE) {
+    serializeJson(doc, Serial);
+    Serial.println();
+    xSemaphoreGive(serialMutex);
+  }
 }

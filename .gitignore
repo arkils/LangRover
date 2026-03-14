@@ -41,6 +41,9 @@ env/
 .env.local
 .env.*.local
 
+# Arduino WiFi credentials — never commit
+esp32_firmware_template/secrets.h
+
 # OS
 .DS_Store
 Thumbs.db
