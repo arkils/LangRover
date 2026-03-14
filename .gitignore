@@ -42,7 +42,7 @@ env/
 .env.*.local
 
 # Arduino WiFi credentials — never commit
-esp32_firmware_template/secrets.h
+esp32_firmware/secrets.h
 
 # OS
 .DS_Store

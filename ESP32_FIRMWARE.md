@@ -171,7 +171,7 @@ WiFi credentials are stored in `secrets.h`, which is **gitignored** so passwords
 
 ```bash
 # One-time setup:
-cp esp32_firmware_template/secrets.h.example esp32_firmware_template/secrets.h
+cp esp32_firmware/secrets.h.example esp32_firmware/secrets.h
 # Then edit secrets.h and fill in your SSID / password.
 ```
 
@@ -207,7 +207,7 @@ If `secrets.h` is absent (e.g. a fresh clone), the sketch still compiles via `#i
 
 #### Option 2: PlatformIO (Recommended)
 1. Install VS Code and PlatformIO extension
-2. Open the `esp32_firmware_template/` folder as a PlatformIO project
+2. Open the `esp32_firmware/` folder as a PlatformIO project
 3. The `platformio.ini` is already configured — just build and upload
 
 ### Firmware Implementation Structure
@@ -506,7 +506,7 @@ void getSensorState(float* front, float* left, float* right, float* rear) {
 
 ## Reference Implementation
 
-See `esp32_firmware_template/esp32_firmware_template.ino` for a complete reference implementation.
+See `esp32_firmware/esp32_firmware.ino` for the complete firmware.
 
 ## Additional Resources
 
