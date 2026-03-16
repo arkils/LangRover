@@ -59,3 +59,10 @@ htmlcov/
 
 # Logs
 *.log
+
+# ML model weights (auto-downloaded at runtime, not stored in repo)
+*.pt
+*.onnx
+*.tflite
+*.gguf
+runs/

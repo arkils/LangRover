@@ -82,12 +82,19 @@ class YOLOVisionDetector(VisionDetector):
         self.model_size = model_size
         self._initialize()
 
+    # Map human-readable size names to ultralytics model codes
+    _SIZE_MAP = {
+        "nano": "n", "small": "s", "medium": "m", "large": "l", "xlarge": "x",
+        "n": "n", "s": "s", "m": "m", "l": "l", "x": "x",
+    }
+
     def _initialize(self):
         """Initialize YOLO model."""
         try:
             from ultralytics import YOLO  # type: ignore
 
-            model_name = f"yolov8{self.model_size}.pt"
+            size_code = self._SIZE_MAP.get(self.model_size.lower(), "n")
+            model_name = f"yolov8{size_code}.pt"
             print(f"[VISION] Loading YOLO model: {model_name}")
             self.model = YOLO(model_name)
             self.available = True

@@ -82,6 +82,7 @@ sudo apt install -y \
     python3-venv \
     python3-dev \
     build-essential \
+    libcap-dev \
     curl \
     wget \
     nano \
@@ -114,12 +115,12 @@ You should see `imx708` listed (that's the Camera Module 3 sensor). If not, chec
 
 ---
 
-## Step 6 — Install picamera2
+## Step 6 — Install picamera2 and libcamera bindings
 
-`picamera2` depends on compiled libcamera bindings that only work as a system package — **do not use pip for this one**.
+`picamera2` and `libcamera` are compiled system packages — **always install via apt, not pip**.
 
 ```bash
-sudo apt install -y python3-picamera2
+sudo apt install -y python3-libcamera python3-picamera2 python3-kms++
 ```
 
 Quick test:
@@ -140,20 +141,23 @@ cd LangRover
 
 ---
 
-## Step 8 — Create the Virtual Environment
+## Step 8 — Run Setup Script
 
-Because `picamera2` is installed system-wide (via apt), the venv needs `--system-site-packages` so it can see it.
+The `setup.sh` script handles everything automatically: detects Pi hardware, installs system dependencies (libcap-dev, python3-picamera2, python3-libcamera), creates the venv with `--system-site-packages`, installs Python dependencies, and pre-downloads the YOLO model.
+
+```bash
+bash setup.sh
+```
+
+Or manually:
 
 ```bash
 python3 -m venv venv --system-site-packages
 source venv/bin/activate
-```
-
-Install the Python dependencies:
-
-```bash
 pip install --upgrade pip
 pip install -r requirements.txt
+# Pre-download YOLO weights (saves time on first robot run)
+python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
 ```
 
 ---
@@ -184,23 +188,9 @@ ollama pull qwen2.5:0.5b
 > ```
 > Update `OLLAMA_MODEL` in your `.env` file accordingly.
 
----
+## Step 10 — Configure Environment
 
-## Step 10 — Install Vision Libraries
-
-YOLO and OpenCV are fine to install via pip:
-
-```bash
-pip install ultralytics opencv-python
-```
-
-This downloads the YOLOv8 weights on first run (~6 MB for nano).
-
----
-
-## Step 11 — Configure Environment
-
-Create a `.env` file in the project root:
+The `.env` file is already included in the repo with sensible defaults. Copy it and adjust for your hardware:
 
 ```bash
 nano .env
@@ -228,7 +218,7 @@ DEFAULT_MOTOR_SPEED=70
 
 ---
 
-## Step 12 — Run the Robot
+## Step 11 — Run the Robot
 
 ```bash
 source venv/bin/activate
@@ -254,12 +244,13 @@ Checking Ollama connection at http://localhost:11434...
 | Problem | Fix |
 |---------|-----|
 | `libcamera-hello` shows no cameras | Check CSI ribbon cable; run `sudo raspi-config` and re-enable camera |
-| `from picamera2 import Picamera2` fails | `sudo apt install python3-picamera2`; make sure venv was created with `--system-site-packages` |
+| `from picamera2 import Picamera2` fails | `sudo apt install python3-libcamera python3-picamera2 python3-pykms`; ensure venv was created with `--system-site-packages` |
+| `No module named 'libcamera'` in venv | Venv missing system-site-packages; recreate: `python3 -m venv venv --system-site-packages` |
 | `ollama: command not found` | Re-run the install script; check `~/.local/bin` is in `$PATH` |
 | `ConnectionError: Ollama is not running` | `ollama serve` in a separate terminal, or enable the systemd service: `sudo systemctl enable --now ollama` |
 | ESP32 not found on `/dev/ttyACM0` | Run `ls /dev/ttyACM*` and update `ESP32_SERIAL_PORT` in `.env` |
 | Permission denied on serial port | `sudo usermod -aG dialout $USER` then log out and back in |
-| YOLO `No such file or directory` on first run | Normal — weights download automatically on first inference |
+| YOLO model not found | Run `python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"` to pre-download weights |
 
 ---
 

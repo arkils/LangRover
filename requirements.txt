@@ -12,9 +12,11 @@ pyserial>=3.5
 # RPi.GPIO is no longer used in this architecture
 # The ESP32 microcontroller handles all GPIO operations
 
-# Vision (optional - install when needed)
-# picamera2  # Pi Camera 3 support
-# ultralytics  # YOLO object detection
+# Vision
+# picamera2 is a system package on Raspberry Pi — do NOT install via pip.
+# It is installed automatically by setup.sh via: sudo apt install python3-picamera2
+# picamera2
+# ultralytics  # YOLO object detection (auto-downloads weights on first run)
 # opencv-python  # Computer vision
 
 # Hailo AI HAT+ (optional - for local AI inference on Pi 5)

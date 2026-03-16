@@ -7,13 +7,36 @@ echo "LangRover - Project Setup"
 echo "================================"
 echo ""
 
-# Step 1: Create virtual environment
-echo "Step 1: Creating virtual environment..."
-# On Raspberry Pi, use --system-site-packages so picamera2 (installed via apt) is accessible.
-# On a laptop, this flag is harmless.
-VENV_FLAGS=""
+# Step 1: Install Raspberry Pi system dependencies
+IS_PI=false
 if [ -f /etc/rpi-issue ] || grep -qi "raspberry" /proc/device-tree/model 2>/dev/null; then
-    echo "  (Raspberry Pi detected — using --system-site-packages for picamera2 support)"
+    IS_PI=true
+fi
+
+if [ "$IS_PI" = true ]; then
+    echo "Step 1: Installing Raspberry Pi system dependencies..."
+    sudo apt-get install -y \
+        libcap-dev \
+        python3-libcamera \
+        python3-picamera2 \
+        python3-kms++
+    if [ $? -eq 0 ]; then
+        echo "✓ System dependencies installed"
+    else
+        echo "✗ Failed to install system dependencies (run: sudo apt-get update first)"
+        exit 1
+    fi
+else
+    echo "Step 1: Skipping Pi system dependencies (not a Raspberry Pi)"
+fi
+echo ""
+
+# Step 2: Create virtual environment
+echo "Step 2: Creating virtual environment..."
+# On Raspberry Pi, use --system-site-packages so libcamera/picamera2 (apt packages) are accessible.
+VENV_FLAGS=""
+if [ "$IS_PI" = true ]; then
+    echo "  (Raspberry Pi detected — using --system-site-packages for libcamera/picamera2 support)"
     VENV_FLAGS="--system-site-packages"
 fi
 if [ ! -d "venv" ]; then
@@ -28,21 +51,21 @@ else
     echo "✓ Virtual environment already exists"
 fi
 
-# Step 2: Activate virtual environment
+# Step 3: Activate virtual environment
 echo ""
-echo "Step 2: Activating virtual environment..."
+echo "Step 3: Activating virtual environment..."
 source venv/bin/activate
 echo "✓ Virtual environment activated"
 
-# Step 3: Upgrade pip
+# Step 4: Upgrade pip
 echo ""
-echo "Step 3: Upgrading pip..."
+echo "Step 4: Upgrading pip..."
 python -m pip install --upgrade pip
 echo "✓ pip upgraded"
 
-# Step 4: Install dependencies in venv ONLY (not global)
+# Step 5: Install dependencies in venv ONLY (not global)
 echo ""
-echo "Step 4: Installing project dependencies (venv only)..."
+echo "Step 5: Installing project dependencies (venv only)..."
 pip install -q -r requirements.txt
 if [ $? -eq 0 ]; then
     echo "✓ Dependencies installed in ./venv ONLY"
@@ -52,16 +75,26 @@ else
     exit 1
 fi
 
+# Step 6: Pre-download YOLO model weights (Pi only — saves time on first robot run)
+if [ "$IS_PI" = true ]; then
+    echo ""
+    echo "Step 6: Pre-downloading YOLO model weights..."
+    python -c "from ultralytics import YOLO; YOLO('yolov8n.pt'); print('✓ YOLOv8n weights ready')" 2>&1 | grep -E '✓|ERROR|error' || true
+fi
+
 echo ""
 echo "================================"
 echo "Setup Complete!"
 echo "================================"
 echo ""
 echo "Next steps:"
-echo "1. Set your OpenAI API key:"
+echo "1. Copy and edit the environment file:"
+echo "   cp .env.example .env   # or edit .env directly"
+echo ""
+echo "2. Set your OpenAI API key (only if using OpenAI):"
 echo "   export OPENAI_API_KEY='sk-...'"
 echo ""
-echo "2. Run the robot simulation:"
-echo "   python main.py"
+echo "3. Run the robot:"
+echo "   source venv/bin/activate && python main.py"
 echo ""
 echo "Virtual environment is active. All dependencies are installed in ./venv only."
