@@ -146,6 +146,7 @@ void motorBackward(int speed, float duration = 0);
 void motorTurnLeft(int speed, float duration = 0);
 void motorTurnRight(int speed, float duration = 0);
 void motorStop();
+void motorSingleRun(const char* motor, const char* direction, int speed, float duration);
 
 float readUltrasonicDistance(int trigPin, int echoPin);
 void updateSensorState(float front, float left, float right, float rear);
@@ -514,6 +515,39 @@ void processCommand(JsonDocument& doc) {
     return;
   }
 
+  // Handle debug commands — individual motor control for hardware testing
+  if (strcmp(cmd, "debug") == 0) {
+    const char* subCmd = doc["subcmd"];
+
+    if (subCmd == nullptr) {
+      sendError("Missing 'subcmd' field");
+      return;
+    }
+
+    if (strcmp(subCmd, "motor") == 0) {
+      const char* motor     = doc["motor"];     // "fl" | "fr" | "rl" | "rr"
+      const char* direction = doc["direction"]; // "forward" | "backward" | "stop"
+      int         speed     = doc["speed"]    | 70;
+      float       duration  = doc["duration"] | 0.0f;
+
+      if (motor == nullptr) {
+        sendError("Missing 'motor' field (fl/fr/rl/rr)");
+        return;
+      }
+      if (direction == nullptr) {
+        sendError("Missing 'direction' field (forward/backward/stop)");
+        return;
+      }
+
+      motorSingleRun(motor, direction, speed, duration);
+      sendAck(true);
+      return;
+    }
+
+    sendError("Unknown debug subcmd");
+    return;
+  }
+
   // Handle OTA status query
   if (strcmp(cmd, "ota_status") == 0) {
     JsonDocument resp;
@@ -660,6 +694,63 @@ void motorStop() {
   ledcWrite(MOTOR_FR_PWM, 0);
   ledcWrite(MOTOR_RL_PWM, 0);
   ledcWrite(MOTOR_RR_PWM, 0);
+}
+
+// ==================== DEBUG: SINGLE MOTOR CONTROL ====================
+// Drives one motor independently — used for wiring/hardware verification.
+// motor:     "fl" (front-left) | "fr" (front-right)
+//            "rl" (rear-left)  | "rr" (rear-right)
+// direction: "forward" | "backward" | "stop"
+// speed:     0-100 (percentage)
+// duration:  seconds to run, then auto-stop (0 = run until explicit stop)
+
+void motorSingleRun(const char* motor, const char* direction, int speed, float duration) {
+  // Resolve pin set for the requested motor
+  int in1Pin, in2Pin, pwmPin;
+
+  if (strcmp(motor, "fl") == 0) {
+    in1Pin = MOTOR_FL_IN1; in2Pin = MOTOR_FL_IN2; pwmPin = MOTOR_FL_PWM;
+  } else if (strcmp(motor, "fr") == 0) {
+    in1Pin = MOTOR_FR_IN1; in2Pin = MOTOR_FR_IN2; pwmPin = MOTOR_FR_PWM;
+  } else if (strcmp(motor, "rl") == 0) {
+    in1Pin = MOTOR_RL_IN1; in2Pin = MOTOR_RL_IN2; pwmPin = MOTOR_RL_PWM;
+  } else if (strcmp(motor, "rr") == 0) {
+    in1Pin = MOTOR_RR_IN1; in2Pin = MOTOR_RR_IN2; pwmPin = MOTOR_RR_PWM;
+  } else {
+    sendError("Invalid motor id — use fl/fr/rl/rr");
+    return;
+  }
+
+  if (strcmp(direction, "stop") == 0) {
+    // Brake: both IN pins LOW, PWM 0
+    digitalWrite(in1Pin, LOW);
+    digitalWrite(in2Pin, LOW);
+    ledcWrite(pwmPin, 0);
+    return;
+  }
+
+  int pwm = map(speed, 0, 100, 0, 255);
+
+  if (strcmp(direction, "forward") == 0) {
+    digitalWrite(in1Pin, HIGH);
+    digitalWrite(in2Pin, LOW);
+  } else if (strcmp(direction, "backward") == 0) {
+    digitalWrite(in1Pin, LOW);
+    digitalWrite(in2Pin, HIGH);
+  } else {
+    sendError("Invalid direction — use forward/backward/stop");
+    return;
+  }
+
+  ledcWrite(pwmPin, pwm);
+
+  if (duration > 0) {
+    delay((unsigned long)(duration * 1000));
+    // Stop only this motor after the timed run
+    digitalWrite(in1Pin, LOW);
+    digitalWrite(in2Pin, LOW);
+    ledcWrite(pwmPin, 0);
+  }
 }
 
 // ==================== SENSOR READING ====================
