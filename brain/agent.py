@@ -1,12 +1,12 @@
 """LangChain agent for autonomous robot decision-making."""
 
-from typing import List
+from typing import List, Optional
 
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import StructuredTool
 
 from actions.base import RobotActions
-from brain.prompts import ROBOT_SYSTEM_PROMPT
+from brain.prompts import ROBOT_SYSTEM_PROMPT, build_human_prompt
 from models.llm import get_llm
 from skills.base import SkillContext
 from skills.registry import SkillRegistry
@@ -65,6 +65,7 @@ def create_agent(
     skill_registry: SkillRegistry,
     llm_provider: str = "ollama",
     ollama_model: str | None = None,
+    memory=None,
 ) -> dict:
     """
     Create the robot agent.
@@ -74,6 +75,9 @@ def create_agent(
         skill_registry: Registry of registered robot skills.
         llm_provider: ``"openai"`` or ``"ollama"``.
         ollama_model: Ollama model name; overrides ``OLLAMA_MODEL`` env var.
+        memory: Optional ``RobotMemory`` instance (Phase 2).  When provided
+            and ``USE_MEMORY=true``, past decisions and semantic-map
+            observations are injected into each prompt.
 
     Returns:
         Agent dict passed to ``decide_and_act()`` each cycle.
@@ -83,6 +87,8 @@ def create_agent(
         "llm": llm,
         "robot_actions": robot_actions,
         "skill_registry": skill_registry,
+        "memory": memory,
+        "current_heading": 0.0,
     }
 
 
@@ -126,9 +132,21 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
     all_tools = nav_tools + skill_tools
 
     # ------------------------------------------------------------------
-    # 3. Build messages
+    # 3. Build messages (optionally inject memory context)
     # ------------------------------------------------------------------
-    human_msg = HumanMessage(content=_build_human_prompt(world_state, skill_registry))
+    robot_memory = agent.get("memory")
+    memories: Optional[str] = None
+    if robot_memory is not None:
+        try:
+            from config import Config
+            if Config().USE_MEMORY:
+                memories = robot_memory.retrieve(world_state)
+        except Exception:
+            pass
+
+    human_msg = HumanMessage(
+        content=_build_human_prompt(world_state, skill_registry, memories)
+    )
     messages = [SystemMessage(content=ROBOT_SYSTEM_PROMPT), human_msg]
 
     print(f"[SENSORS] {world_state}")
@@ -155,6 +173,8 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
                 if matched:
                     print(f"[TOOL] {tool_name}({tool_args})")
                     matched.invoke(tool_args)
+                    _update_heading(agent, tool_name, tool_args)
+                    _store_memory(agent, world_state, tool_name)
                 else:
                     print(f"[WARNING] LLM called unknown tool '{tool_name}' — ignoring")
             return
@@ -168,7 +188,10 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
             else str(response).strip().lower()
         )
         print(f"[FALLBACK] No tool calls received — parsing text: {content[:80]}")
-        _execute_text_fallback(content, robot_actions)
+        fallen_action = _execute_text_fallback(content, robot_actions)
+        if fallen_action:
+            _update_heading(agent, fallen_action, {})
+            _store_memory(agent, world_state, fallen_action)
 
     except Exception as e:
         print(f"[ERROR] Agent error: {e}")
@@ -180,51 +203,25 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _build_human_prompt(world_state: WorldState, skill_registry: SkillRegistry) -> str:
-    """Format the current world state into a human message for the LLM."""
-    v = world_state.vision
+def _build_human_prompt(
+    world_state: WorldState,
+    skill_registry: SkillRegistry,
+    memories: Optional[str] = None,
+) -> str:
+    """Format the current world state into a human message for the LLM.
 
-    # Vision section
-    if v.objects or v.people_count or v.motion_detected:
-        vision_lines = []
-        for obj in v.objects:
-            vision_lines.append(
-                f"  - {obj.name} ({obj.confidence:.0%} confidence, "
-                f"pos {obj.x:.2f},{obj.y:.2f})"
-            )
-        if v.people_count:
-            vision_lines.append(
-                f"  - PEOPLE DETECTED: {v.people_count} person(s) — use greet_person"
-            )
-        if v.motion_detected:
-            vision_lines.append("  - Motion detected")
-        vision_section = "\n" + "\n".join(vision_lines)
-    else:
-        vision_section = " No objects detected"
-
-    # Relevant skill hints
-    detected_names = [obj.name for obj in v.objects]
-    triggered = skill_registry.get_triggered_skills(detected_names)
-    skill_hint = ""
-    if triggered:
-        names = ", ".join(s.name for s in triggered)
-        skill_hint = f"\nRELEVANT SKILLS for detected objects: {names}\n"
-
-    return (
-        f"Current robot state:\n\n"
-        f"DISTANCE SENSORS:\n"
-        f"  Front: {world_state.front_distance_cm} cm\n"
-        f"  Left:  {world_state.left_distance_cm} cm\n"
-        f"  Right: {world_state.right_distance_cm} cm\n"
-        f"  Target visible: {world_state.target_visible}\n\n"
-        f"VISION:{vision_section}\n"
-        f"{skill_hint}\n"
-        f"Choose the best tool to call."
-    )
+    Delegates to ``brain.prompts.build_human_prompt`` so the logic stays in one
+    place.  The ``memories`` argument is forwarded for Phase 2 RAG injection.
+    """
+    return build_human_prompt(world_state, skill_registry, memories)
 
 
 def _execute_text_fallback(decision: str, robot_actions: RobotActions) -> None:
-    """Parse a plain-text LLM response and execute the best matching action."""
+    """Parse a plain-text LLM response and execute the best matching action.
+
+    Returns:
+        The name of the action that was executed, or ``None`` if nothing ran.
+    """
 
     def _extract_int(text: str, default: int) -> int:
         digits = "".join(c for c in text if c.isdigit())
@@ -234,20 +231,71 @@ def _execute_text_fallback(decision: str, robot_actions: RobotActions) -> None:
         distance = max(10, min(100, _extract_int(decision.split("move_forward")[-1], 30)))
         robot_actions.move_forward(distance)
         print(f"[EXECUTED] move_forward {distance} cm")
+        return "move_forward"
     elif "turn_right" in decision:
         degrees = max(15, min(90, _extract_int(decision.split("turn_right")[-1], 45)))
         robot_actions.turn_right(degrees)
         print(f"[EXECUTED] turn_right {degrees} degrees")
+        return "turn_right"
     elif "turn_left" in decision:
         degrees = max(15, min(90, _extract_int(decision.split("turn_left")[-1], 45)))
         robot_actions.turn_left(degrees)
         print(f"[EXECUTED] turn_left {degrees} degrees")
+        return "turn_left"
     elif "stop" in decision:
         robot_actions.stop()
         print("[EXECUTED] stop")
+        return "stop"
     else:
         robot_actions.move_forward(30)
         print("[EXECUTED] move_forward 30 cm (default fallback)")
+        return "move_forward"
+
+
+# ---------------------------------------------------------------------------
+# Memory helpers (Phase 2)
+# ---------------------------------------------------------------------------
+
+def _update_heading(agent: dict, tool_name: str, tool_args: dict) -> None:
+    """Update the accumulated heading estimate after a turn action.
+
+    Args:
+        agent: Agent dict (mutated in place).
+        tool_name: The tool that was just executed.
+        tool_args: Arguments passed to the tool (may contain ``degrees``).
+    """
+    degrees = float(tool_args.get("degrees", 45))
+    if tool_name == "turn_left":
+        agent["current_heading"] = (agent.get("current_heading", 0.0) - degrees) % 360
+    elif tool_name == "turn_right":
+        agent["current_heading"] = (agent.get("current_heading", 0.0) + degrees) % 360
+
+
+def _store_memory(agent: dict, world_state: WorldState, action: str) -> None:
+    """Persist a decision and any current YOLO observations to memory.
+
+    Args:
+        agent: Agent dict (must have ``"memory"`` and ``"current_heading"``).
+        world_state: Current sensor snapshot.
+        action: Tool name that was just executed.
+    """
+    robot_memory = agent.get("memory")
+    if robot_memory is None:
+        return
+    try:
+        from config import Config
+        if not Config().USE_MEMORY:
+            return
+    except Exception:
+        return
+
+    heading = agent.get("current_heading", 0.0)
+    try:
+        robot_memory.store_decision(world_state, action)
+        robot_memory.store_observation(world_state, heading)
+    except Exception as exc:
+        print(f"[MEMORY] store failed: {exc}")
+
 
 
 

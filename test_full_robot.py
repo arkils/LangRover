@@ -481,6 +481,148 @@ class RobotSystemTest:
             self.log(f"Human Prompt Content Test Failed: {e}", "ERROR")
             return False
 
+    def test_memory_store_retrieve(self):
+        """Test: RobotMemory stores decisions and retrieves them (USE_MEMORY=true)."""
+        self.log("Memory Store & Retrieve", "TEST")
+        import tempfile
+        import os
+
+        try:
+            tmpdir = tempfile.mkdtemp(prefix="langrover_mem_test_")
+            from brain.memory import RobotMemory
+
+            mem = RobotMemory(persist_dir=tmpdir)
+
+            state = WorldState(
+                front_distance_cm=22.0,
+                left_distance_cm=80.0,
+                right_distance_cm=15.0,
+                target_visible=False,
+            )
+
+            # Store two decisions
+            mem.store_decision(state, "turn_left", "obstacle cleared")
+            mem.store_decision(
+                WorldState(
+                    front_distance_cm=28.0,
+                    left_distance_cm=60.0,
+                    right_distance_cm=30.0,
+                    target_visible=False,
+                ),
+                "stop",
+                "then turned left — success",
+            )
+
+            # Retrieve should return a non-empty context block
+            context = mem.retrieve(state)
+            assert isinstance(context, str), "retrieve() should return a string"
+            assert len(context.strip()) > 0, "context should be non-empty after storing decisions"
+            assert "PAST DECISIONS" in context, "context should include PAST DECISIONS header"
+            assert "turn_left" in context or "stop" in context, \
+                "context should mention at least one stored action"
+            self.log(f"  Retrieved context ({len(context)} chars)", "SUCCESS")
+
+            # USE_MEMORY=false → build_human_prompt should not include memory block
+            from brain.prompts import build_human_prompt
+            from skills.registry import SkillRegistry as _SR
+            reg = _SR()
+            prompt_no_mem = build_human_prompt(state, reg, memories=None)
+            assert "PAST DECISIONS" not in prompt_no_mem, \
+                "Prompt without memories should not contain PAST DECISIONS"
+            self.log("  No memory block when memories=None", "SUCCESS")
+
+            # USE_MEMORY=true equivalent → memory block injected
+            prompt_with_mem = build_human_prompt(state, reg, memories=context)
+            assert "PAST DECISIONS" in prompt_with_mem, \
+                "Prompt with memories should contain PAST DECISIONS"
+            self.log("  Memory block present when memories provided", "SUCCESS")
+
+            return True
+        except Exception as e:
+            self.log(f"Memory Store & Retrieve Test Failed: {e}", "ERROR")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def test_semantic_map_observation(self):
+        """Test: RobotMemory stores YOLO observations and includes them in retrieve."""
+        self.log("Semantic Map Observation", "TEST")
+        import tempfile
+
+        try:
+            tmpdir = tempfile.mkdtemp(prefix="langrover_obs_test_")
+            from brain.memory import RobotMemory
+
+            mem = RobotMemory(persist_dir=tmpdir)
+
+            state_with_objects = WorldState(
+                front_distance_cm=60.0,
+                left_distance_cm=100.0,
+                right_distance_cm=100.0,
+                target_visible=False,
+                vision=VisionData(
+                    objects=[
+                        DetectedObject(name="sofa", confidence=0.89, x=0.5, y=0.5, width=0.3, height=0.3),
+                        DetectedObject(name="TV", confidence=0.91, x=0.7, y=0.4, width=0.2, height=0.2),
+                    ]
+                ),
+            )
+
+            # No objects → observation not stored
+            state_empty = WorldState(
+                front_distance_cm=40.0,
+                left_distance_cm=40.0,
+                right_distance_cm=40.0,
+                target_visible=False,
+            )
+            mem.store_observation(state_empty, heading_deg=0.0)
+            # observations collection should still be empty
+            # (store_observation skips empty vision)
+
+            # With objects → should be stored
+            mem.store_observation(state_with_objects, heading_deg=0.0)
+            mem.store_observation(
+                WorldState(
+                    front_distance_cm=50.0,
+                    left_distance_cm=80.0,
+                    right_distance_cm=80.0,
+                    target_visible=False,
+                    vision=VisionData(
+                        objects=[
+                            DetectedObject(name="person", confidence=0.99, x=0.5, y=0.5, width=0.2, height=0.5)
+                        ],
+                        people_count=1,
+                    ),
+                ),
+                heading_deg=90.0,
+            )
+
+            context = mem.retrieve(state_with_objects)
+            assert "SEMANTIC MAP" in context, "context should include SEMANTIC MAP header"
+            assert "sofa" in context or "TV" in context or "person" in context, \
+                "context should mention at least one observed object"
+            self.log(f"  Semantic map context retrieved ({len(context)} chars)", "SUCCESS")
+
+            # Heading tracking: turning left should decrease heading
+            from brain.agent import _update_heading
+            agent_dict = {"current_heading": 0.0}
+            _update_heading(agent_dict, "turn_left", {"degrees": 45})
+            assert agent_dict["current_heading"] == 315.0, \
+                f"Expected 315.0 after turn_left 45 from 0, got {agent_dict['current_heading']}"
+            self.log("  turn_left updates heading correctly (0 - 45 = 315 mod 360)", "SUCCESS")
+
+            _update_heading(agent_dict, "turn_right", {"degrees": 90})
+            assert agent_dict["current_heading"] == 45.0, \
+                f"Expected 45.0 after turn_right 90 from 315, got {agent_dict['current_heading']}"
+            self.log("  turn_right updates heading correctly (315 + 90 = 45 mod 360)", "SUCCESS")
+
+            return True
+        except Exception as e:
+            self.log(f"Semantic Map Observation Test Failed: {e}", "ERROR")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def test_stress(self, cycles: int = 20):
         """Test: Stress test - rapid cycles to check stability."""
         self.log(f"Stress Test ({cycles} rapid cycles)", "TEST")
@@ -525,6 +667,8 @@ class RobotSystemTest:
             ("WorldState Data Model", self.test_world_state_model),
             ("CLI Actions Output", self.test_cli_actions_output),
             ("Human Prompt Content", self.test_human_prompt_content),
+            ("Memory Store & Retrieve", self.test_memory_store_retrieve),
+            ("Semantic Map Observation", self.test_semantic_map_observation),
         ]
 
         results = {}

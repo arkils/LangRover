@@ -1,0 +1,180 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="arch" name="LangRover Architecture">
+    <mxGraphModel dx="1664" dy="1015" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="1">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="grp_laptop" parent="1" style="swimlane;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;rounded=1;" value="💻  Laptop — Simulation Mode" vertex="1">
+          <mxGeometry height="180" width="560" x="40" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="sim_sensors" parent="grp_laptop" style="rounded=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" value="SimulatedSensors&#xa;random float distances&#xa;(0–400 cm)" vertex="1">
+          <mxGeometry height="70" width="160" x="20" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="mock_cam" parent="grp_laptop" style="rounded=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" value="MockCamera&#xa;vision/camera.py" vertex="1">
+          <mxGeometry height="70" width="150" x="210" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="mock_vision" parent="grp_laptop" style="rounded=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" value="MockVisionDetector&#xa;random YOLO objects&#xa;vision/detector.py" vertex="1">
+          <mxGeometry height="70" width="150" x="390" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mock_cam_vis" edge="1" parent="grp_laptop" source="mock_cam" style="edgeStyle=orthogonalEdgeStyle;" target="mock_vision" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_pi5" parent="1" style="swimlane;startSize=36;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;rounded=1;" value="🍓  Raspberry Pi 5 — Real Hardware Mode" vertex="1">
+          <mxGeometry height="180" width="560" x="660" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="real_sensors" parent="grp_pi5" style="rounded=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" value="SensorArray&#xa;hardware/sensors.py&#xa;→ ESP32 ultrasonic" vertex="1">
+          <mxGeometry height="70" width="160" x="20" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="real_cam" parent="grp_pi5" style="rounded=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" value="PiCamera3&#xa;vision/camera.py" vertex="1">
+          <mxGeometry height="70" width="150" x="210" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="yolo_vision" parent="grp_pi5" style="rounded=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" value="YOLOVisionDetector&#xa;ultralytics YOLOv8&#xa;vision/detector.py" vertex="1">
+          <mxGeometry height="70" width="150" x="390" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e_real_cam_vis" edge="1" parent="grp_pi5" source="real_cam" style="edgeStyle=orthogonalEdgeStyle;" target="yolo_vision" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_world" parent="1" style="swimlane;startSize=36;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=13;rounded=1;" value="🌍  World Layer  (world/)" vertex="1">
+          <mxGeometry height="170" width="1180" x="40" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="simulator" parent="grp_world" style="rounded=1;fillColor=#f3d9fa;strokeColor=#9673a6;fontSize=11;" value="simulator.py&#xa;read_world_state()&#xa;Assembles WorldState each cycle" vertex="1">
+          <mxGeometry height="80" width="220" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="worldstate" parent="grp_world" style="rounded=1;fillColor=#f3d9fa;strokeColor=#9673a6;fontSize=11;" value="WorldState  (Pydantic)&#xa;• front/left/right_distance_cm&#xa;• target_visible: bool&#xa;• vision: VisionData" vertex="1">
+          <mxGeometry height="80" width="220" x="280" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="visiondata" parent="grp_world" style="rounded=1;fillColor=#f3d9fa;strokeColor=#9673a6;fontSize=11;" value="VisionData  (Pydantic)&#xa;• objects: List[DetectedObject]&#xa;• people_count: int&#xa;• has_faces / motion_detected" vertex="1">
+          <mxGeometry height="80" width="230" x="540" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="detobj" parent="grp_world" style="rounded=1;fillColor=#f3d9fa;strokeColor=#9673a6;fontSize=11;" value="DetectedObject  (Pydantic)&#xa;• name: str  (YOLO class label)&#xa;• confidence: float  0–1&#xa;• x, y, width, height: float" vertex="1">
+          <mxGeometry height="80" width="230" x="810" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sim_ws" edge="1" parent="grp_world" source="simulator" style="edgeStyle=orthogonalEdgeStyle;" target="worldstate" value="WorldState">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ws_vd" edge="1" parent="grp_world" source="worldstate" style="edgeStyle=orthogonalEdgeStyle;" target="visiondata" value="vision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_vd_do" edge="1" parent="grp_world" source="visiondata" style="edgeStyle=orthogonalEdgeStyle;" target="detobj" value="objects[ ]">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_brain" parent="1" style="swimlane;startSize=36;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=13;rounded=1;" value="🧠  Brain Layer  (brain/)" vertex="1">
+          <mxGeometry height="210" width="1180" x="40" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="agent" parent="grp_brain" style="rounded=1;fillColor=#ffff88;strokeColor=#d6b656;fontSize=11;fontStyle=1;" value="agent.py&#xa;decide_and_act()&#xa;&#xa;1. optional memory retrieve&#xa;2. build tools&#xa;3. invoke LLM&#xa;4. execute tool call&#xa;5. store memory" vertex="1">
+          <mxGeometry height="130" width="190" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="prompts" parent="grp_brain" style="rounded=1;fillColor=#ffff88;strokeColor=#d6b656;fontSize=11;" value="prompts.py&#xa;build_human_prompt()&#xa;&#xa;• Sensor readings&#xa;• Vision objects&#xa;• Relevant skill hints&#xa;• Memory context (Phase 2)" vertex="1">
+          <mxGeometry height="130" width="190" x="240" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="memory" parent="grp_brain" style="rounded=1;fillColor=#ffff88;strokeColor=#d6b656;fontSize=11;" value="memory.py  (Phase 2)&#xa;RobotMemory (ChromaDB)&#xa;&#xa;Collection: decisions&#xa;  past sensor→action pairs&#xa;Collection: observations&#xa;  YOLO detections + heading" vertex="1">
+          <mxGeometry height="130" width="210" x="460" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="skillreg" parent="grp_brain" style="rounded=1;fillColor=#ffff88;strokeColor=#d6b656;fontSize=11;" value="skills/registry.py&#xa;SkillRegistry&#xa;&#xa;• register(Skill)&#xa;• get_triggered_skills()&#xa;• to_langchain_tools()" vertex="1">
+          <mxGeometry height="130" width="190" x="700" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="skills_builtin" parent="grp_brain" style="rounded=1;fillColor=#ffff88;strokeColor=#d6b656;fontSize=11;" value="skills/builtin.py&#xa;&#xa;• CatGreetingSkill&#xa;• DogGreetingSkill&#xa;• PersonGreetingSkill&#xa;  (+ custom subclasses)" vertex="1">
+          <mxGeometry height="130" width="190" x="920" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e_agent_mem_get" edge="1" parent="grp_brain" source="agent" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" target="memory" value="retrieve()">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="115" y="185" />
+              <mxPoint x="565" y="185" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_mem_prompts" edge="1" parent="grp_brain" source="memory" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" target="prompts" value="context string">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_agent_prompts" edge="1" parent="grp_brain" source="agent" style="edgeStyle=orthogonalEdgeStyle;" target="prompts" value="world_state">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_agent_skills" edge="1" parent="grp_brain" source="agent" style="edgeStyle=orthogonalEdgeStyle;" target="skillreg" value="SkillContext">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_skills_builtin" edge="1" parent="grp_brain" source="skillreg" style="edgeStyle=orthogonalEdgeStyle;" target="skills_builtin" value="delegates">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_agent_mem_store" edge="1" parent="grp_brain" source="agent" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d6b656;" target="memory" value="store_decision()&#xa;store_observation()">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_llm" parent="1" style="swimlane;startSize=36;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;rounded=1;" value="🤖  LLM Providers  (models/llm.py  •  get_llm())" vertex="1">
+          <mxGeometry height="140" width="560" x="40" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="openai_llm" parent="grp_llm" style="rounded=1;fillColor=#ffd7d7;strokeColor=#b85450;fontSize=11;" value="ChatOpenAI&#xa;model: gpt-4o-mini&#xa;temperature: 0&#xa;LLM_PROVIDER=openai" vertex="1">
+          <mxGeometry height="65" width="180" x="30" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ollama_llm" parent="grp_llm" style="rounded=1;fillColor=#ffd7d7;strokeColor=#b85450;fontSize=11;" value="ChatOllama&#xa;model: qwen2.5:0.5b&#xa;base_url: localhost:11434&#xa;LLM_PROVIDER=ollama" vertex="1">
+          <mxGeometry height="65" width="180" x="250" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_actions" parent="1" style="swimlane;startSize=36;fillColor=#f0e6ff;strokeColor=#9673a6;fontStyle=1;fontSize=13;rounded=1;" value="⚡  Actions Layer  (actions/)" vertex="1">
+          <mxGeometry height="140" width="560" x="660" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="cli_actions" parent="grp_actions" style="rounded=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=11;" value="CLIRobotActions&#xa;cli_actions.py&#xa;Prints to console&#xa;(Simulation)" vertex="1">
+          <mxGeometry height="65" width="170" x="30" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="gpio_actions" parent="grp_actions" style="rounded=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=11;" value="GPIORobotActions&#xa;gpio_actions.py&#xa;ESP32 via USB-CDC&#xa;(Real hardware)" vertex="1">
+          <mxGeometry height="65" width="170" x="230" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="actions_base" parent="grp_actions" style="rounded=1;fillColor=#f0e6ff;strokeColor=#9673a6;fontSize=11;" value="RobotActions (ABC)&#xa;base.py&#xa;move_forward(cm)&#xa;turn_left/right(°)  stop()" vertex="1">
+          <mxGeometry height="65" width="160" x="370" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_esp32" parent="1" style="swimlane;startSize=36;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;rounded=1;" value="⚙️  ESP32 Microcontroller — Hardware Control" vertex="1">
+          <mxGeometry height="140" width="560" x="660" y="980" as="geometry" />
+        </mxCell>
+        <mxCell id="esp32_motors" parent="grp_esp32" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="TB6612FNG&#xa;Motor Driver x2&#xa;4× DC Motors" vertex="1">
+          <mxGeometry height="65" width="150" x="30" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="esp32_proto" parent="grp_esp32" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="JSON Protocol&#xa;USB-CDC Serial&#xa;115200 baud" vertex="1">
+          <mxGeometry height="65" width="150" x="210" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="esp32_sensors" parent="grp_esp32" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="HC-SR04&#xa;Ultrasonic ×3&#xa;Front / Left / Right" vertex="1">
+          <mxGeometry height="65" width="150" x="390" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="e_esp32_motors" edge="1" parent="grp_esp32" source="esp32_proto" style="edgeStyle=orthogonalEdgeStyle;" target="esp32_motors" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_esp32_sensors" edge="1" parent="grp_esp32" source="esp32_proto" style="edgeStyle=orthogonalEdgeStyle;" target="esp32_sensors" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="config_note" parent="1" style="shape=note;whiteSpace=wrap;fontSize=11;fillColor=#fffacd;strokeColor=#d6b656;" value="config.py / .env&#xa;LLM_PROVIDER · USE_MEMORY · CHROMA_PERSIST_DIR&#xa;USE_GPIO_ACTIONS · USE_REAL_SENSORS · USE_REAL_VISION&#xa;SIMULATION_STEPS · DEFAULT_MOTOR_SPEED" vertex="1">
+          <mxGeometry height="90" width="330" x="1280" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_simsens_sim" edge="1" parent="1" source="sim_sensors" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.1;entryY=0;" target="simulator" value="distances">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mockvision_sim" edge="1" parent="1" source="mock_vision" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.3;entryY=0;" target="simulator" value="VisionData">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_realsens_sim" edge="1" parent="1" source="real_sensors" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="simulator" value="distances">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_yolovision_sim" edge="1" parent="1" source="yolo_vision" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.7;entryY=0;" target="simulator" value="VisionData">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ws_agent" edge="1" parent="1" source="worldstate" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;fontStyle=1;" target="agent" value="WorldState">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_prompts_llm" edge="1" parent="1" source="prompts" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;fontStyle=1;" target="openai_llm" value="HumanMessage&#xa;+ bind_tools()">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_llm_agent" edge="1" parent="1" source="ollama_llm" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="agent" value="tool_call /&#xa;plain text">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_agent_cli" edge="1" parent="1" source="agent" style="edgeStyle=orthogonalEdgeStyle;" target="cli_actions" value="execute (sim)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_agent_gpio" edge="1" parent="1" source="agent" style="edgeStyle=orthogonalEdgeStyle;" target="gpio_actions" value="execute (real)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_gpio_esp32" edge="1" parent="1" source="gpio_actions" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;" target="esp32_proto" value="JSON / USB-CDC">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_esp32_realsens" edge="1" parent="1" source="esp32_sensors" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;" target="real_sensors" value="sensor readings">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

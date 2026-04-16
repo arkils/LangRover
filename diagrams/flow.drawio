@@ -1,0 +1,232 @@
+<mxfile host="app.diagrams.net" modified="2026-04-15T00:00:00.000Z" version="21.0.0" type="device">
+  <diagram id="flow" name="Decision Cycle Flow">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="1">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- LANE BACKGROUNDS -->
+        <mxCell id="lane_main" value="main.py" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;opacity=30;" vertex="1" parent="1">
+          <mxGeometry x="20" y="20" width="140" height="1560" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_world" value="world/" style="swimlane;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;opacity=30;" vertex="1" parent="1">
+          <mxGeometry x="180" y="20" width="140" height="1560" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_brain" value="brain/" style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;opacity=30;" vertex="1" parent="1">
+          <mxGeometry x="340" y="20" width="160" height="1560" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_memory" value="brain/memory.py" style="swimlane;startSize=30;fillColor=#f9dbc0;strokeColor=#d79b00;fontStyle=1;opacity=30;" vertex="1" parent="1">
+          <mxGeometry x="520" y="20" width="150" height="1560" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_llm" value="models/llm.py" style="swimlane;startSize=30;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;opacity=30;" vertex="1" parent="1">
+          <mxGeometry x="690" y="20" width="140" height="1560" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_skills" value="skills/" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;opacity=30;" vertex="1" parent="1">
+          <mxGeometry x="850" y="20" width="140" height="1560" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_actions" value="actions/" style="swimlane;startSize=30;fillColor=#f0e6ff;strokeColor=#9673a6;fontStyle=1;opacity=30;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="20" width="140" height="1560" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== NODES ===================== -->
+
+        <!-- START -->
+        <mxCell id="n_start" value="START&#xa;main.py" style="ellipse;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="60" width="120" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Config & Init -->
+        <mxCell id="n_init" value="Load Config&#xa;Init SkillRegistry&#xa;Create Agent" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="30" y="140" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Loop start -->
+        <mxCell id="n_loop" value="Next cycle&#xa;(step 1..N)" style="rhombus;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="240" width="100" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- read_world_state -->
+        <mxCell id="n_rws" value="read_world_state()&#xa;simulator.py" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="190" y="245" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- WorldState assembled -->
+        <mxCell id="n_ws" value="WorldState&#xa;distances + VisionData" style="rounded=1;fillColor=#f3d9fa;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="190" y="330" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- decide_and_act called -->
+        <mxCell id="n_daa" value="decide_and_act()&#xa;agent.py" style="rounded=1;fillColor=#ffff88;strokeColor=#d6b656;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="350" y="330" width="130" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- USE_MEMORY check -->
+        <mxCell id="n_mem_check" value="USE_MEMORY&#xa;= true?" style="rhombus;fillColor=#f9dbc0;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="350" y="420" width="130" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- retrieve from ChromaDB -->
+        <mxCell id="n_retrieve" value="RobotMemory&#xa;.retrieve()&#xa;ChromaDB query" style="rounded=1;fillColor=#f9dbc0;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="530" y="420" width="120" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- memory output -->
+        <mxCell id="n_mem_out" value="PAST DECISIONS&#xa;+ SEMANTIC MAP&#xa;context string" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="530" y="515" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- build prompt -->
+        <mxCell id="n_prompt" value="build_human_prompt()&#xa;prompts.py&#xa;sensor + vision + memories" style="rounded=1;fillColor=#ffff88;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="350" y="515" width="130" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- LLM invoke -->
+        <mxCell id="n_llm" value="bind_tools().invoke()&#xa;[SystemMsg, HumanMsg]" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="515" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Response type -->
+        <mxCell id="n_resp_check" value="Response has&#xa;tool_call?" style="rhombus;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="355" y="615" width="120" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Tool type check -->
+        <mxCell id="n_tool_check" value="Nav tool or&#xa;Skill tool?" style="rhombus;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="355" y="730" width="120" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Nav action -->
+        <mxCell id="n_nav" value="RobotActions&#xa;move_forward /&#xa;turn_left/right / stop" style="rounded=1;fillColor=#f0e6ff;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="730" width="120" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- update heading -->
+        <mxCell id="n_heading" value="_update_heading()&#xa;agent.py&#xa;track orientation" style="rounded=1;fillColor=#ffff88;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="355" y="840" width="130" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- skill execute -->
+        <mxCell id="n_skill" value="skill.execute()&#xa;SkillRegistry&#xa;skills/builtin.py" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="860" y="730" width="120" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- skill internal actions -->
+        <mxCell id="n_skill_motors" value="RobotActions&#xa;(internal motor cmds)" style="rounded=1;fillColor=#f0e6ff;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="840" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- text fallback -->
+        <mxCell id="n_fallback" value="_execute_text_fallback()&#xa;parse keyword in text&#xa;agent.py" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="355" y="638" width="130" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- fallback action -->
+        <mxCell id="n_fallback_act" value="RobotActions&#xa;best keyword match" style="rounded=1;fillColor=#f0e6ff;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="638" width="120" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- store memory check -->
+        <mxCell id="n_store_check" value="USE_MEMORY&#xa;= true?" style="rhombus;fillColor=#f9dbc0;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="355" y="940" width="130" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- store decision + observation -->
+        <mxCell id="n_store" value="store_decision()&#xa;store_observation()&#xa;ChromaDB write" style="rounded=1;fillColor=#f9dbc0;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="530" y="940" width="120" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- sleep -->
+        <mxCell id="n_sleep" value="sleep(DECISION_CYCLE&#xa;_DELAY_SECONDS)" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="30" y="1060" width="120" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- more cycles? -->
+        <mxCell id="n_more" value="More cycles&#xa;remaining?" style="rhombus;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1150" width="100" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- END -->
+        <mxCell id="n_end" value="END&#xa;Simulation complete" style="ellipse;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="1270" width="120" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== EDGES ===================== -->
+
+        <mxCell id="f1" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_start" target="n_init" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f2" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_init" target="n_loop" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f3" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_loop" target="n_rws" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f4" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_rws" target="n_ws" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f5" value="WorldState" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_ws" target="n_daa" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f6" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_daa" target="n_mem_check" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="f7" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_mem_check" target="n_retrieve" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f8" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_retrieve" target="n_mem_out" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f9" value="context" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_mem_out" target="n_prompt" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f10" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_mem_check" target="n_prompt" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="325" y="453" /><mxPoint x="325" y="545" /></Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="f11" value="HumanMsg" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_prompt" target="n_llm" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f12" value="tool_call / text" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_llm" target="n_resp_check" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="760" y="597" /><mxPoint x="760" y="648" /><mxPoint x="475" y="648" /></Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="f13" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_resp_check" target="n_tool_check" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f14" value="No (plain text)" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_resp_check" target="n_fallback" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="335" y="648" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f15" value="execute" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_fallback" target="n_fallback_act" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="f16" value="Nav" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_tool_check" target="n_nav" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f17" value="Skill" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_tool_check" target="n_skill" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="f18" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_nav" target="n_heading" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1080" y="797" /><mxPoint x="1080" y="868" /><mxPoint x="485" y="868" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f19" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_skill" target="n_skill_motors" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- Converge to store_check -->
+        <mxCell id="f20" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_heading" target="n_store_check" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f21" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_skill_motors" target="n_store_check" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1080" y="895" /><mxPoint x="1080" y="973" /><mxPoint x="485" y="973" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f22" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_fallback_act" target="n_store_check" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1080" y="705" /><mxPoint x="1080" y="973" /><mxPoint x="485" y="973" /></Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="f23" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_store_check" target="n_store" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="f24" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_store_check" target="n_sleep" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="325" y="972" /><mxPoint x="90" y="972" /><mxPoint x="90" y="1088" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f25" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_store" target="n_sleep" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="590" y="1040" /><mxPoint x="90" y="1040" /><mxPoint x="90" y="1088" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f26" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_sleep" target="n_more" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="f27" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_more" target="n_loop" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="20" y="1183" /><mxPoint x="20" y="270" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f28" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="n_more" target="n_end" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -51,6 +51,10 @@ class Config:
     # Simulation Settings
     SIMULATION_STEPS: int = int(os.getenv("SIMULATION_STEPS", "10"))
 
+    # Memory Settings (Phase 2)
+    USE_MEMORY: bool = os.getenv("USE_MEMORY", "false").lower() == "true"
+    CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
+
     def validate(self) -> None:
         """Validate configuration."""
         if self.LLM_PROVIDER == "openai" and not self.OPENAI_API_KEY:
