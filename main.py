@@ -56,8 +56,23 @@ def main() -> None:
         robot_actions = CLIRobotActions()
         print("[ACTIONS] Using CLI simulation")
 
+    # Initialise memory (Phase 2) — only if USE_MEMORY=true
+    robot_memory = None
+    if config.USE_MEMORY:
+        from brain.memory import RobotMemory
+        robot_memory = RobotMemory(persist_dir=config.CHROMA_PERSIST_DIR)
+        print(f"[MEMORY] ChromaDB enabled — persisting to {config.CHROMA_PERSIST_DIR}")
+    else:
+        print("[MEMORY] Disabled (set USE_MEMORY=true to enable)")
+
     # Create agent
-    agent = create_agent(robot_actions, skill_registry, llm_provider=config.LLM_PROVIDER, ollama_model=config.OLLAMA_MODEL)
+    agent = create_agent(
+        robot_actions,
+        skill_registry,
+        llm_provider=config.LLM_PROVIDER,
+        ollama_model=config.OLLAMA_MODEL,
+        memory=robot_memory,
+    )
 
     # Main control loop
     try:
