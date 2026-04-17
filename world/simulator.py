@@ -101,9 +101,13 @@ def read_world_state() -> WorldState:
     if sensors and sensors.is_available():
         # Read real sensor data
         distances = sensors.read_all()
-        front_distance = distances.get('front', 200.0) or 200.0
-        left_distance = distances.get('left', 200.0) or 200.0
-        right_distance = distances.get('right', 200.0) or 200.0
+        front_distance = distances.get('front') or 200.0
+        left_distance = distances.get('left') or 200.0
+        right_distance = distances.get('right') or 200.0
+        # Clamp negatives (ESP32 returns -1 on sensor error) to safe default
+        front_distance = max(0.0, front_distance)
+        left_distance = max(0.0, left_distance)
+        right_distance = max(0.0, right_distance)
         # Rear sensor available but not used in current WorldState model
         
         # Target detection would need additional sensor/camera logic

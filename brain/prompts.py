@@ -79,8 +79,29 @@ def build_human_prompt(
     else:
         vision_section = " No objects detected"
 
-    # Relevant skill hints
+    # Compute explicit recommended action based on sensor data and detections
     detected_names = [obj.name for obj in v.objects]
+
+    # Person/cat/dog — greet takes priority
+    if v.people_count > 0 or "person" in detected_names:
+        recommendation = "RECOMMENDED ACTION: call greet_person — a person is detected."
+    elif "cat" in detected_names:
+        recommendation = "RECOMMENDED ACTION: call greet_cat — a cat is detected."
+    elif "dog" in detected_names:
+        recommendation = "RECOMMENDED ACTION: call greet_dog — a dog is detected."
+    else:
+        front = world_state.front_distance_cm
+        left = world_state.left_distance_cm
+        right = world_state.right_distance_cm
+        if front >= 30:
+            recommendation = f"RECOMMENDED ACTION: call move_forward — front is clear ({front:.0f} cm)."
+        elif left >= right and left >= 25:
+            recommendation = f"RECOMMENDED ACTION: call turn_left — left has more space ({left:.0f} cm vs right {right:.0f} cm)."
+        elif right >= 25:
+            recommendation = f"RECOMMENDED ACTION: call turn_right — right has more space ({right:.0f} cm)."
+        else:
+            recommendation = "RECOMMENDED ACTION: call stop — all directions blocked."
+
     triggered = skill_registry.get_triggered_skills(detected_names)
     skill_hint = ""
     if triggered:
@@ -102,6 +123,7 @@ def build_human_prompt(
         f"VISION:{vision_section}\n"
         f"{skill_hint}"
         f"{memory_section}\n"
-        f"Choose the best tool to call."
+        f"{recommendation}\n"
+        f"You MUST follow the recommendation above unless a skill is more appropriate."
     )
 

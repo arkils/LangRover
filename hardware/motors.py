@@ -8,8 +8,12 @@ Architecture:
     Raspberry Pi → USB Serial → ESP32 → TB6612FNG Motor Drivers → DC Motors
 """
 
+import os
 import time
+from dotenv import load_dotenv
 from hardware.esp32_serial import get_esp32
+
+load_dotenv()
 
 
 class MotorController:
@@ -20,14 +24,7 @@ class MotorController:
     Commands are sent to ESP32 via USB serial, which controls the actual motor hardware.
     """
     
-    def __init__(self, serial_port: str = "/dev/ttyACM0", baudrate: int = 115200):
-        """
-        Initialize motor controller with ESP32 connection.
-        
-        Args:
-            serial_port: USB serial port for ESP32 (e.g., /dev/ttyACM0, COM3)
-            baudrate: Serial communication speed (default 115200)
-        """
+    def __init__(self, serial_port: str = "/dev/ttyUSB0", baudrate: int = 115200):
         self.esp32 = get_esp32(port=serial_port, baudrate=baudrate)
         
         if self.esp32.is_available():
