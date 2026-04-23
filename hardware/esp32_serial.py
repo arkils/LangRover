@@ -77,8 +77,7 @@ class ESP32Serial:
             self.running = True
             self.read_thread = threading.Thread(target=self._read_loop, daemon=True)
             self.read_thread.start()
-            
-            # Test connection with ping
+            time.sleep(0.1)  # Give read thread time to start before ping
             if self._ping():
                 self.available = True
                 print(f"[ESP32] Connected on {self.port} at {self.baudrate} baud")
@@ -122,7 +121,7 @@ class ESP32Serial:
         Returns:
             True if command was sent successfully
         """
-        if not self.available or not self.serial_conn:
+        if not self.serial_conn:
             print(f"[ESP32] Cannot send command - not connected")
             return False
         
@@ -339,18 +338,26 @@ class ESP32Serial:
 _esp32_instance: Optional[ESP32Serial] = None
 
 
-def get_esp32(port: str = "/dev/ttyACM0", baudrate: int = 115200) -> ESP32Serial:
+def get_esp32(port: str = None, baudrate: int = None) -> ESP32Serial:
     """
     Get or create global ESP32 serial instance.
     
     Args:
-        port: Serial port path
-        baudrate: Communication speed
+        port: Serial port path (defaults to ESP32_SERIAL_PORT env var or /dev/ttyACM0)
+        baudrate: Communication speed (defaults to ESP32_BAUDRATE env var or 115200)
         
     Returns:
         ESP32Serial instance
     """
+    import os
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
     global _esp32_instance
     if _esp32_instance is None:
-        _esp32_instance = ESP32Serial(port=port, baudrate=baudrate)
+        resolved_port = port or os.getenv("ESP32_SERIAL_PORT", "/dev/ttyUSB0")
+        resolved_baudrate = baudrate or int(os.getenv("ESP32_BAUDRATE", "115200"))
+        _esp32_instance = ESP32Serial(port=resolved_port, baudrate=resolved_baudrate)
     return _esp32_instance

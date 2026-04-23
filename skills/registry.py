@@ -1,6 +1,6 @@
 """Skill registry: maps detected objects to executable robot skills."""
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from langchain_core.tools import StructuredTool
 
@@ -59,6 +59,10 @@ class SkillRegistry:
     def get_all(self) -> List[Skill]:
         """Return all registered skills."""
         return list(self._skills.values())
+
+    def get(self, name: str) -> "Optional[Skill]":
+        """Return a skill by name, or None if not registered."""
+        return self._skills.get(name)
 
     def get_triggered_skills(self, detected_object_names: List[str]) -> List[Skill]:
         """

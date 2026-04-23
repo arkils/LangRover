@@ -136,6 +136,16 @@ echo ""
 echo "Step 5: Starting LangRover..."
 echo ""
 
+# Flush ESP32 serial port to ensure clean reconnect
+ESP32_PORT=$(grep -m1 '^ESP32_SERIAL_PORT=' .env 2>/dev/null | cut -d= -f2)
+ESP32_PORT=${ESP32_PORT:-/dev/ttyUSB0}
+if [ -e "$ESP32_PORT" ]; then
+    echo "  Flushing $ESP32_PORT..."
+    sudo fuser -k "$ESP32_PORT" 2>/dev/null || true
+    sleep 0.5
+    echo "✓ Serial port flushed"
+fi
+
 if [ -n "$MODEL" ]; then
     export OLLAMA_MODEL=$MODEL
 fi

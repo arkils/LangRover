@@ -8,9 +8,13 @@ Architecture:
     Raspberry Pi → USB Serial → ESP32 → HC-SR04 Ultrasonic Sensors
 """
 
+import os
 import time
 from typing import Optional, Dict
+from dotenv import load_dotenv
 from hardware.esp32_serial import get_esp32
+
+load_dotenv()
 
 
 class SensorArray:
@@ -21,14 +25,9 @@ class SensorArray:
     Sensors are physically connected to ESP32, which handles the low-level reading.
     """
     
-    def __init__(self, serial_port: str = "/dev/ttyACM0", baudrate: int = 115200):
-        """
-        Initialize sensor array with ESP32 connection.
-        
-        Args:
-            serial_port: USB serial port for ESP32 (e.g., /dev/ttyACM0, COM3)
-            baudrate: Serial communication speed (default 115200)
-        """
+    def __init__(self):
+        serial_port = os.getenv("ESP32_SERIAL_PORT", "/dev/ttyUSB0")
+        baudrate = int(os.getenv("ESP32_BAUDRATE", "115200"))
         self.esp32 = get_esp32(port=serial_port, baudrate=baudrate)
         
         if self.esp32.is_available():

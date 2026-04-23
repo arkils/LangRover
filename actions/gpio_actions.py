@@ -5,10 +5,14 @@ This module implements the RobotActions interface using real GPIO-controlled
 motors on Raspberry Pi 5, replacing CLI output with actual motor commands.
 """
 
+import os
 import time
+from dotenv import load_dotenv
 
 from actions.base import RobotActions
 from hardware.motors import MotorController
+
+load_dotenv()
 
 
 class GPIORobotActions(RobotActions):
@@ -25,7 +29,9 @@ class GPIORobotActions(RobotActions):
         Args:
             default_speed: Default motor speed percentage (0-100)
         """
-        self.motors = MotorController()
+        serial_port = os.getenv("ESP32_SERIAL_PORT", "/dev/ttyUSB0")
+        baudrate = int(os.getenv("ESP32_BAUDRATE", "115200"))
+        self.motors = MotorController(serial_port=serial_port, baudrate=baudrate)
         self.default_speed = default_speed
         
         if not self.motors.is_available():
