@@ -1,15 +1,84 @@
-"""Persistent memory for LangRover using ChromaDB.
+"""Memory for LangRover — two tiers.
 
-Two collections:
-- ``decisions``: past sensor readings + actions taken (so the LLM can recall
-  what worked in similar situations).
-- ``observations``: YOLO detections with heading + distance (semantic map).
+Short-term (``ShortTermMemory``):
+    In-process rolling buffer of the last N decision cycles.  Lives in a
+    Python ``deque`` — no database, resets every robot run.  Gives the LLM
+    awareness of *what just happened* (prevents action loops).
+
+Long-term (``RobotMemory``):
+    ChromaDB-backed persistent store, survives robot restarts.  Two
+    collections:
+    - ``decisions``: past sensor readings + actions taken (similar situation
+      recall across all historical runs).
+    - ``observations``: YOLO detections with heading + distance (semantic map).
 """
 
 import time
 import uuid
+from collections import deque
+from typing import Any
 
 from world.state import WorldState
+
+
+# ---------------------------------------------------------------------------
+# Short-term memory  (RAM only, per-run)
+# ---------------------------------------------------------------------------
+
+class ShortTermMemory:
+    """Rolling in-process buffer of the last *max_cycles* decision cycles.
+
+    Args:
+        max_cycles: How many recent cycles to keep.  Oldest entry is dropped
+            automatically when the buffer is full.
+    """
+
+    def __init__(self, max_cycles: int = 5) -> None:
+        self._buffer: deque[dict[str, Any]] = deque(maxlen=max_cycles)
+
+    def record(self, world_state: WorldState, action: str) -> None:
+        """Append a completed cycle to the buffer.
+
+        Args:
+            world_state: Sensor + vision snapshot at decision time.
+            action: Tool name that was executed (e.g. ``"turn_left"``).
+        """
+        self._buffer.append({
+            "front":   world_state.front_distance_cm,
+            "left":    world_state.left_distance_cm,
+            "right":   world_state.right_distance_cm,
+            "rear":    world_state.rear_distance_cm,
+            "action":  action,
+            "objects": [o.name for o in world_state.vision.objects],
+        })
+
+    def summarise(self) -> str:
+        """Return a human-readable summary for injection into the LLM prompt.
+
+        Returns:
+            Multi-line string with one line per buffered cycle (oldest first),
+            or an empty string when the buffer is empty.
+        """
+        if not self._buffer:
+            return ""
+
+        total = len(self._buffer)
+        lines = ["[Short-Term Memory — this session, last cycles]"]
+        for i, entry in enumerate(self._buffer):
+            age = i - total  # negative offset: -4, -3, ..., -1, 0
+            objs = f"  objects=[{', '.join(entry['objects'])}]" if entry["objects"] else ""
+            lines.append(
+                f"  Cycle {age:+d}: "
+                f"Front={entry['front']:.0f}cm "
+                f"Left={entry['left']:.0f}cm "
+                f"Right={entry['right']:.0f}cm "
+                f"Rear={entry.get('rear', 200.0):.0f}cm "
+                f"→ {entry['action']}{objs}"
+            )
+        return "\n".join(lines)
+
+    def __len__(self) -> int:
+        return len(self._buffer)
 
 
 class RobotMemory:

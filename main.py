@@ -56,14 +56,28 @@ def main() -> None:
         robot_actions = CLIRobotActions()
         print("[ACTIONS] Using CLI simulation")
 
-    # Initialise memory (Phase 2) — only if USE_MEMORY=true
+    # Initialise memory (long-term ChromaDB) — only if USE_MEMORY=true
     robot_memory = None
     if config.USE_MEMORY:
         from brain.memory import RobotMemory
         robot_memory = RobotMemory(persist_dir=config.CHROMA_PERSIST_DIR)
-        print(f"[MEMORY] ChromaDB enabled — persisting to {config.CHROMA_PERSIST_DIR}")
+        print(f"[MEMORY] Long-term ChromaDB enabled — persisting to {config.CHROMA_PERSIST_DIR}")
     else:
-        print("[MEMORY] Disabled (set USE_MEMORY=true to enable)")
+        print("[MEMORY] Long-term memory disabled (set USE_MEMORY=true to enable)")
+
+    # Initialise short-term memory (Week 4 — always on, in-process deque)
+    from brain.memory import ShortTermMemory
+    short_term_memory = ShortTermMemory(max_cycles=config.SHORT_TERM_MEMORY_CYCLES)
+    print(f"[MEMORY] Short-term memory enabled — rolling window: {config.SHORT_TERM_MEMORY_CYCLES} cycles")
+
+    # Initialise RAG knowledge base (Week 4 — rag and hybrid modes)
+    rag_kb = None
+    mode = config.DECISION_MODE.lower()
+    print(f"[AGENT] Decision mode: {mode.upper()}")
+    if mode in ("rag", "hybrid"):
+        from brain.rag import RAGKnowledgeBase
+        rag_kb = RAGKnowledgeBase(persist_dir=config.RAG_KNOWLEDGE_DIR)
+        rag_kb.populate_defaults()
 
     # Create agent
     agent = create_agent(
@@ -72,6 +86,8 @@ def main() -> None:
         llm_provider=config.LLM_PROVIDER,
         ollama_model=config.OLLAMA_MODEL,
         memory=robot_memory,
+        rag_kb=rag_kb,
+        short_term_memory=short_term_memory,
     )
 
     # Main control loop
@@ -81,7 +97,19 @@ def main() -> None:
 
             # Read current world state (real sensors or simulated)
             world_state = read_world_state()
-            print(f"[SENSORS] {world_state}")
+            front_flag = " [!!BLOCKED]" if world_state.front_distance_cm < config.MIN_SAFE_DISTANCE_CM else ""
+            print(
+                f"[SENSORS] Front: {world_state.front_distance_cm:.0f}cm{front_flag}"
+                f" | Left: {world_state.left_distance_cm:.0f}cm"
+                f" | Right: {world_state.right_distance_cm:.0f}cm"
+                f" | Rear: {world_state.rear_distance_cm:.0f}cm"
+            )
+            _obj_parts = [f"{o.name}({o.confidence:.0%})" for o in world_state.vision.objects]
+            if world_state.vision.people_count > 0:
+                _obj_parts.append(f"{world_state.vision.people_count} person(s)")
+            if world_state.vision.motion_detected:
+                _obj_parts.append("motion")
+            print(f"[VISION]  {', '.join(_obj_parts) if _obj_parts else 'no objects detected'}")
 
             # Get agent decision and execute action
             decide_and_act(agent, world_state)

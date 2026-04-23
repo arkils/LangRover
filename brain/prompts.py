@@ -40,6 +40,11 @@ Skill Strategy:
 - Prefer skills over raw navigation when a known object is detected
 
 You MUST call exactly one tool. Do not reply with plain text.
+
+Knowledge Base Tool (Agentic RAG — hybrid mode only):
+- query_knowledge_base: Call this when the situation is ambiguous or novel and
+  you want to consult stored navigation rules.  Skip it when the situation is
+  clear (e.g. an obvious obstacle or a well-known object in front of you).
 """
 
 
@@ -47,14 +52,20 @@ def build_human_prompt(
     world_state: "WorldState",
     skill_registry: "SkillRegistry",
     memories: Optional[str] = None,
+    rag_context: Optional[str] = None,
+    short_term_context: Optional[str] = None,
 ) -> str:
     """Build the human-turn message for the LLM.
 
     Args:
         world_state: Current sensor + vision snapshot.
         skill_registry: Registry used to surface relevant skill hints.
-        memories: Optional pre-formatted memory context block from
+        memories: Optional long-term memory context block from
             ``RobotMemory.retrieve()``.  Injected verbatim when provided.
+        rag_context: Optional retrieved rules from ``RAGKnowledgeBase.retrieve()``
+            (Traditional RAG mode).  Injected as a distinct section.
+        short_term_context: Optional rolling session buffer summary from
+            ``ShortTermMemory.summarise()``.  Injected as a distinct section.
 
     Returns:
         Formatted multi-line string ready to send as a ``HumanMessage``.
@@ -87,10 +98,20 @@ def build_human_prompt(
         names = ", ".join(s.name for s in triggered)
         skill_hint = f"\nRELEVANT SKILLS for detected objects: {names}\n"
 
-    # Memory context block (Phase 2)
+    # Memory context block (long-term — ChromaDB across runs)
     memory_section = ""
     if memories and memories.strip():
         memory_section = f"\n{memories.strip()}\n"
+
+    # RAG context block (Traditional RAG — pre-retrieved rules)
+    rag_section = ""
+    if rag_context and rag_context.strip():
+        rag_section = f"\n{rag_context.strip()}\n"
+
+    # Short-term memory block (this session, rolling buffer)
+    short_term_section = ""
+    if short_term_context and short_term_context.strip():
+        short_term_section = f"\n{short_term_context.strip()}\n"
 
     return (
         f"Current robot state:\n\n"
@@ -98,10 +119,13 @@ def build_human_prompt(
         f"  Front: {world_state.front_distance_cm} cm\n"
         f"  Left:  {world_state.left_distance_cm} cm\n"
         f"  Right: {world_state.right_distance_cm} cm\n"
+        f"  Rear:  {world_state.rear_distance_cm} cm\n"
         f"  Target visible: {world_state.target_visible}\n\n"
         f"VISION:{vision_section}\n"
         f"{skill_hint}"
-        f"{memory_section}\n"
+        f"{short_term_section}"
+        f"{memory_section}"
+        f"{rag_section}\n"
         f"Choose the best tool to call."
     )
 

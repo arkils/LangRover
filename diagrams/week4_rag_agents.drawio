@@ -1,0 +1,289 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="week4_comparison" name="Week 4 — Before vs After">
+    <mxGraphModel dx="1230" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1400" math="0" shadow="1">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="main_title" parent="1" style="text;html=1;fontSize=22;fontStyle=1;align=center;strokeColor=none;fillColor=none;" value="LangRover — Decision Flow: Before (Weeks 1–3) vs After (Week 4)" vertex="1">
+          <mxGeometry height="40" width="2000" x="200" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="panel_before" parent="1" style="swimlane;startSize=40;fillColor=#f5f5f5;strokeColor=#555;fontStyle=1;fontSize=15;rounded=1;arcSize=4;" value="BEFORE — Weeks 1–3  |  Single Agent, Optional Long-Term Memory" vertex="1">
+          <mxGeometry height="1220" width="740" x="30" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="b_start" parent="panel_before" style="ellipse;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;" value="START" vertex="1">
+          <mxGeometry height="44" width="120" x="270" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b_ws" parent="panel_before" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;" value="WorldState&#xa;sensors + vision" vertex="1">
+          <mxGeometry height="54" width="220" x="220" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="b_stm_label" parent="panel_before" style="text;fontSize=11;fontColor=#b85450;fontStyle=2;align=center;" value="❌  No short-term memory" vertex="1">
+          <mxGeometry height="24" width="320" x="170" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="b_mem_q" parent="panel_before" style="rhombus;fillColor=#f9dbc0;strokeColor=#d79b00;fontSize=11;" value="USE_MEMORY&#xa;= true?" vertex="1">
+          <mxGeometry height="70" width="180" x="240" y="248" as="geometry" />
+        </mxCell>
+        <mxCell id="b_ltm" parent="panel_before" style="rounded=1;fillColor=#f9dbc0;strokeColor=#d79b00;fontSize=11;dashed=1;strokeWidth=2;" value="RobotMemory.retrieve()&#xa;ChromaDB long-term&#xa;(past sessions)" vertex="1">
+          <mxGeometry height="54" width="200" x="470" y="256" as="geometry" />
+        </mxCell>
+        <mxCell id="b_daa" parent="panel_before" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" value="decide_and_act()" vertex="1">
+          <mxGeometry height="50" width="220" x="220" y="356" as="geometry" />
+        </mxCell>
+        <mxCell id="b_prompt" parent="panel_before" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="build_human_prompt()&#xa;sensors + vision&#xa;+ memory context (if any)" vertex="1">
+          <mxGeometry height="60" width="250" x="205" y="446" as="geometry" />
+        </mxCell>
+        <mxCell id="b_llm" parent="panel_before" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="llm.invoke()&#xa;— ONE call per cycle —&#xa;nav tools + skill tools bound" vertex="1">
+          <mxGeometry height="66" width="270" x="195" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="b_toolq" parent="panel_before" style="rhombus;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="tool_call&#xa;returned?" vertex="1">
+          <mxGeometry height="64" width="160" x="250" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="b_fallback" parent="panel_before" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;dashed=1;" value="text fallback&#xa;keyword parse" vertex="1">
+          <mxGeometry height="48" width="160" x="490" y="668" as="geometry" />
+        </mxCell>
+        <mxCell id="b_action" parent="panel_before" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" value="RobotActions&#xa;move_forward / turn / stop / skill" vertex="1">
+          <mxGeometry height="54" width="270" x="205" y="774" as="geometry" />
+        </mxCell>
+        <mxCell id="b_store" parent="panel_before" style="rounded=1;fillColor=#f9dbc0;strokeColor=#d79b00;fontSize=11;dashed=1;strokeWidth=2;" value="store_decision()&#xa;store_observation()&#xa;ChromaDB write (if USE_MEMORY)" vertex="1">
+          <mxGeometry height="60" width="270" x="205" y="872" as="geometry" />
+        </mxCell>
+        <mxCell id="b_loop" parent="panel_before" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" value="next cycle loop" vertex="1">
+          <mxGeometry height="40" width="150" x="255" y="978" as="geometry" />
+        </mxCell>
+        <mxCell id="eb1" edge="1" parent="panel_before" source="b_start" style="edgeStyle=orthogonalEdgeStyle;" target="b_ws">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb2" edge="1" parent="panel_before" source="b_ws" style="edgeStyle=orthogonalEdgeStyle;" target="b_mem_q">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb3" edge="1" parent="panel_before" source="b_mem_q" style="edgeStyle=orthogonalEdgeStyle;exitX=1;exitY=0.5;dashed=1;strokeColor=#d79b00;" target="b_ltm" value="YES">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb4" edge="1" parent="panel_before" source="b_mem_q" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;" target="b_daa" value="NO">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb4b" edge="1" parent="panel_before" source="b_ltm" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#d79b00;" target="b_daa">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="570" y="340" />
+              <mxPoint x="330" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eb5" edge="1" parent="panel_before" source="b_daa" style="edgeStyle=orthogonalEdgeStyle;" target="b_prompt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb6" edge="1" parent="panel_before" source="b_prompt" style="edgeStyle=orthogonalEdgeStyle;" target="b_llm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb7" edge="1" parent="panel_before" source="b_llm" style="edgeStyle=orthogonalEdgeStyle;" target="b_toolq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb8" edge="1" parent="panel_before" source="b_toolq" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;" target="b_action" value="YES">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb9" edge="1" parent="panel_before" source="b_toolq" style="edgeStyle=orthogonalEdgeStyle;exitX=1;exitY=0.5;dashed=1;" target="b_fallback" value="NO">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb9b" edge="1" parent="panel_before" source="b_fallback" style="edgeStyle=orthogonalEdgeStyle;dashed=1;" target="b_action">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="570" y="800" />
+              <mxPoint x="340" y="800" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eb10" edge="1" parent="panel_before" source="b_action" style="edgeStyle=orthogonalEdgeStyle;" target="b_store">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb11" edge="1" parent="panel_before" source="b_store" style="edgeStyle=orthogonalEdgeStyle;" target="b_loop">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="panel_after" parent="1" style="swimlane;startSize=40;fillColor=#f5f5f5;strokeColor=#555;fontStyle=1;fontSize=15;rounded=1;arcSize=4;" value="AFTER — Week 4  |  Three Modes: DECISION_MODE = agent | rag | hybrid" vertex="1">
+          <mxGeometry height="1220" width="1570" x="800" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="a_shared_bg" parent="panel_after" style="rounded=1;fillColor=#ececff;strokeColor=#9673a6;dashed=1;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="134" width="1530" x="20" y="56" as="geometry" />
+        </mxCell>
+        <mxCell id="a_shared_lbl" parent="panel_after" style="text;fontSize=11;fontStyle=2;fontColor=#666;" value="Shared inputs for all three modes" vertex="1">
+          <mxGeometry height="20" width="240" x="30" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="a_ws" parent="panel_after" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;" value="WorldState&#xa;sensors + vision" vertex="1">
+          <mxGeometry height="50" width="190" x="40" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="a_stm" parent="panel_after" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="NEW: ShortTermMemory&#xa;deque, RAM only, last 5 cycles&#xa;records every action this session" vertex="1">
+          <mxGeometry height="66" width="260" x="250" y="72" as="geometry" />
+        </mxCell>
+        <mxCell id="a_ltm_shared" parent="panel_after" style="rounded=1;fillColor=#f9dbc0;strokeColor=#d79b00;fontSize=11;dashed=1;" value="RobotMemory (ChromaDB)&#xa;long-term, unchanged" vertex="1">
+          <mxGeometry height="50" width="240" x="530" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="a_ragkb_shared" parent="panel_after" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="NEW: RAGKnowledgeBase (ChromaDB)&#xa;15 static nav rules, brain/rag.py" vertex="1">
+          <mxGeometry height="54" width="300" x="790" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="div_lbl" parent="panel_after" style="text;fontSize=13;fontStyle=3;align=center;" value="Choose one mode with DECISION_MODE env var" vertex="1">
+          <mxGeometry height="26" width="860" x="350" y="204" as="geometry" />
+        </mxCell>
+        <mxCell id="col_agent" parent="panel_after" style="swimlane;startSize=46;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;rounded=1;opacity=80;" value="DECISION_MODE=agent&#xa;Pure Agent — No Retrieval" vertex="1">
+          <mxGeometry height="910" width="460" x="20" y="238" as="geometry" />
+        </mxCell>
+        <mxCell id="ag_desc" parent="col_agent" style="text;fontSize=11;fontStyle=2;align=center;" value="LLM reasons from raw sensor data only.&#xa;No KB lookup. Fastest mode." vertex="1">
+          <mxGeometry height="36" width="420" x="20" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="ag_prompt" parent="col_agent" style="rounded=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" value="build_human_prompt()&#xa;sensors + short-term context&#xa;(no RAG, no long-term memory)" vertex="1">
+          <mxGeometry height="66" width="340" x="60" y="106" as="geometry" />
+        </mxCell>
+        <mxCell id="ag_llm" parent="col_agent" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="llm.invoke() — Invoke 1 (ONLY)&#xa;nav tools + skill tools" vertex="1">
+          <mxGeometry height="60" width="340" x="60" y="216" as="geometry" />
+        </mxCell>
+        <mxCell id="ag_action" parent="col_agent" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" value="RobotActions&#xa;move_forward / turn / stop / skill" vertex="1">
+          <mxGeometry height="54" width="340" x="60" y="326" as="geometry" />
+        </mxCell>
+        <mxCell id="ag_stm_rec" parent="col_agent" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="ShortTermMemory.record()&#xa;append cycle to deque" vertex="1">
+          <mxGeometry height="50" width="340" x="60" y="428" as="geometry" />
+        </mxCell>
+        <mxCell id="ag_tag" parent="col_agent" style="text;fontSize=11;fontColor=#6c8ebf;fontStyle=1;align=center;" value="Log: [Mode: Pure Agent — no retrieval]" vertex="1">
+          <mxGeometry height="30" width="400" x="30" y="504" as="geometry" />
+        </mxCell>
+        <mxCell id="eag1" edge="1" parent="col_agent" source="ag_prompt" style="edgeStyle=orthogonalEdgeStyle;" target="ag_llm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eag2" edge="1" parent="col_agent" source="ag_llm" style="edgeStyle=orthogonalEdgeStyle;" target="ag_action">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eag3" edge="1" parent="col_agent" source="ag_action" style="edgeStyle=orthogonalEdgeStyle;" target="ag_stm_rec">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="col_rag" parent="panel_after" style="swimlane;startSize=46;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;rounded=1;opacity=80;" value="DECISION_MODE=rag&#xa;Traditional RAG — Always Retrieve First" vertex="1">
+          <mxGeometry height="910" width="520" x="500" y="238" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_desc" parent="col_rag" style="text;fontSize=11;fontStyle=2;align=center;" value="Rules retrieved BEFORE every LLM call.&#xa;LLM receives KB context — no choice." vertex="1">
+          <mxGeometry height="36" width="480" x="20" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_retrieve" parent="col_rag" style="rounded=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" value="RAGKnowledgeBase.retrieve()&#xa;similarity search on sensor state&#xa;returns top-3 nav rules" vertex="1">
+          <mxGeometry height="66" width="420" x="50" y="106" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_ltm_opt" parent="col_rag" style="rounded=1;fillColor=#ffffff;strokeColor=#d79b00;fontSize=11;dashed=1;" value="RobotMemory.retrieve() (optional)&#xa;long-term past decisions" vertex="1">
+          <mxGeometry height="50" width="420" x="50" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_prompt" parent="col_rag" style="rounded=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" value="build_human_prompt()&#xa;sensors + short-term&#xa;+ RAG rules + long-term memory" vertex="1">
+          <mxGeometry height="66" width="420" x="50" y="264" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_llm" parent="col_rag" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="llm.invoke() — Invoke 1 (ONLY)&#xa;nav tools + skill tools" vertex="1">
+          <mxGeometry height="60" width="420" x="50" y="378" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_action" parent="col_rag" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" value="RobotActions&#xa;move_forward / turn / stop / skill" vertex="1">
+          <mxGeometry height="54" width="420" x="50" y="488" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_stm" parent="col_rag" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="ShortTermMemory.record()" vertex="1">
+          <mxGeometry height="44" width="420" x="50" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="rag_tag" parent="col_rag" style="text;fontSize=11;fontColor=#82b366;fontStyle=1;align=center;" value="Log: [Mode: Traditional RAG — retrieved N rules]" vertex="1">
+          <mxGeometry height="30" width="460" x="30" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="erag1" edge="1" parent="col_rag" source="rag_retrieve" style="edgeStyle=orthogonalEdgeStyle;" target="rag_ltm_opt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="erag2" edge="1" parent="col_rag" source="rag_ltm_opt" style="edgeStyle=orthogonalEdgeStyle;" target="rag_prompt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="erag3" edge="1" parent="col_rag" source="rag_prompt" style="edgeStyle=orthogonalEdgeStyle;" target="rag_llm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="erag4" edge="1" parent="col_rag" source="rag_llm" style="edgeStyle=orthogonalEdgeStyle;" target="rag_action">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="erag5" edge="1" parent="col_rag" source="rag_action" style="edgeStyle=orthogonalEdgeStyle;" target="rag_stm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="col_hybrid" parent="panel_after" style="swimlane;startSize=46;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=13;rounded=1;opacity=80;" value="DECISION_MODE=hybrid&#xa;Agentic RAG — LLM Decides Whether to Retrieve" vertex="1">
+          <mxGeometry height="910" width="510" x="1040" y="238" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_desc" parent="col_hybrid" style="text;fontSize=11;fontStyle=2;align=center;" value="query_knowledge_base is a LangChain StructuredTool.&#xa;LLM picks it — or skips it — each cycle." vertex="1">
+          <mxGeometry height="36" width="470" x="20" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_prompt1" parent="col_hybrid" style="rounded=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" value="build_human_prompt()&#xa;sensors + short-term only&#xa;(no RAG yet)" vertex="1">
+          <mxGeometry height="60" width="410" x="50" y="106" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_llm1" parent="col_hybrid" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="llm.invoke() — Invoke 1&#xa;nav + skills + query_knowledge_base tool" vertex="1">
+          <mxGeometry height="60" width="410" x="50" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_diamond" parent="col_hybrid" style="rhombus;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" value="LLM called&#xa;query_knowledge_base?" vertex="1">
+          <mxGeometry height="80" width="250" x="130" y="314" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_yes_lbl" parent="col_hybrid" style="text;fontSize=12;fontStyle=1;fontColor=#d6b656;" value="YES — retrieve" vertex="1">
+          <mxGeometry height="24" width="120" x="10" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_kb_retrieve" parent="col_hybrid" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="RAGKnowledgeBase.retrieve()&#xa;returns matched rules string" vertex="1">
+          <mxGeometry height="54" width="410" x="50" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_prompt2" parent="col_hybrid" style="rounded=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" value="build_human_prompt()&#xa;sensors + short-term + retrieved rules" vertex="1">
+          <mxGeometry height="54" width="410" x="50" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_llm2" parent="col_hybrid" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="llm.invoke() — Invoke 2&#xa;nav + skills only (no KB tool)" vertex="1">
+          <mxGeometry height="60" width="410" x="50" y="642" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_action" parent="col_hybrid" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" value="RobotActions" vertex="1">
+          <mxGeometry height="50" width="410" x="50" y="752" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_no_lbl" parent="col_hybrid" style="text;fontSize=12;fontStyle=1;fontColor=#6c8ebf;" value="NO — acts directly (1 invoke)" vertex="1">
+          <mxGeometry height="40" width="200" x="310" y="382" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_stm" parent="col_hybrid" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="ShortTermMemory.record()" vertex="1">
+          <mxGeometry height="40" width="410" x="50" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="hyb_tag" parent="col_hybrid" style="text;fontSize=11;fontColor=#d6b656;fontStyle=1;align=center;" value="Log: [Agentic RAG — LLM chose/skipped retrieval]" vertex="1">
+          <mxGeometry height="28" width="470" x="20" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="ehyb1" edge="1" parent="col_hybrid" source="hyb_prompt1" style="edgeStyle=orthogonalEdgeStyle;" target="hyb_llm1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ehyb2" edge="1" parent="col_hybrid" source="hyb_llm1" style="edgeStyle=orthogonalEdgeStyle;" target="hyb_diamond">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ehyb3" edge="1" parent="col_hybrid" source="hyb_diamond" style="edgeStyle=orthogonalEdgeStyle;exitX=0;exitY=0.5;" target="hyb_kb_retrieve">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="28" y="354" />
+              <mxPoint x="28" y="467" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ehyb4" edge="1" parent="col_hybrid" source="hyb_kb_retrieve" style="edgeStyle=orthogonalEdgeStyle;" target="hyb_prompt2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ehyb5" edge="1" parent="col_hybrid" source="hyb_prompt2" style="edgeStyle=orthogonalEdgeStyle;" target="hyb_llm2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ehyb6" edge="1" parent="col_hybrid" source="hyb_llm2" style="edgeStyle=orthogonalEdgeStyle;" target="hyb_action">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ehyb7" edge="1" parent="col_hybrid" source="hyb_action" style="edgeStyle=orthogonalEdgeStyle;" target="hyb_stm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_bg" parent="1" style="swimlane;startSize=28;fillColor=#f5f5f5;strokeColor=#555;fontStyle=1;fontSize=13;rounded=1;" value="Legend" vertex="1">
+          <mxGeometry height="70" width="2340" x="30" y="1312" as="geometry" />
+        </mxCell>
+        <mxCell id="lg1" parent="legend_bg" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" value="WorldState / sensors" vertex="1">
+          <mxGeometry height="36" width="190" x="20" y="22" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2" parent="legend_bg" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Brain / Agent logic" vertex="1">
+          <mxGeometry height="36" width="190" x="224" y="22" as="geometry" />
+        </mxCell>
+        <mxCell id="lg3" parent="legend_bg" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" value="LLM invoke (red = hot path)" vertex="1">
+          <mxGeometry height="36" width="240" x="428" y="22" as="geometry" />
+        </mxCell>
+        <mxCell id="lg4" parent="legend_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="RobotActions / Skills" vertex="1">
+          <mxGeometry height="36" width="190" x="682" y="22" as="geometry" />
+        </mxCell>
+        <mxCell id="lg5" parent="legend_bg" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="Short-term memory (RAM, this session)" vertex="1">
+          <mxGeometry height="36" width="280" x="886" y="22" as="geometry" />
+        </mxCell>
+        <mxCell id="lg6" parent="legend_bg" style="rounded=1;fillColor=#f9dbc0;strokeColor=#d79b00;fontSize=11;dashed=1;strokeWidth=2;" value="Long-term memory (ChromaDB, dashed = optional)" vertex="1">
+          <mxGeometry height="36" width="310" x="1180" y="22" as="geometry" />
+        </mxCell>
+        <mxCell id="lg7" parent="legend_bg" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;" value="NEW in Week 4: ShortTermMemory + RAGKnowledgeBase + 3-mode decide_and_act()" vertex="1">
+          <mxGeometry height="36" width="560" x="1510" y="22" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -66,6 +66,8 @@ def create_agent(
     llm_provider: str = "ollama",
     ollama_model: str | None = None,
     memory=None,
+    rag_kb=None,
+    short_term_memory=None,
 ) -> dict:
     """
     Create the robot agent.
@@ -75,9 +77,10 @@ def create_agent(
         skill_registry: Registry of registered robot skills.
         llm_provider: ``"openai"`` or ``"ollama"``.
         ollama_model: Ollama model name; overrides ``OLLAMA_MODEL`` env var.
-        memory: Optional ``RobotMemory`` instance (Phase 2).  When provided
-            and ``USE_MEMORY=true``, past decisions and semantic-map
-            observations are injected into each prompt.
+        memory: Optional ``RobotMemory`` instance (long-term ChromaDB memory).
+        rag_kb: Optional ``RAGKnowledgeBase`` instance (Week 4 RAG modes).
+        short_term_memory: Optional ``ShortTermMemory`` instance (Week 4,
+            rolling in-process buffer of recent cycles).
 
     Returns:
         Agent dict passed to ``decide_and_act()`` each cycle.
@@ -88,6 +91,8 @@ def create_agent(
         "robot_actions": robot_actions,
         "skill_registry": skill_registry,
         "memory": memory,
+        "rag_kb": rag_kb,
+        "short_term_memory": short_term_memory,
         "current_heading": 0.0,
     }
 
@@ -100,98 +105,219 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
     """
     Run one decision cycle: read world state → call LLM with tools → execute.
 
-    Flow:
-    1. Hard safety check (people detected → stop, no LLM call).
-    2. Build navigation tools + all registered skill tools.
-    3. Bind tools to the LLM (``llm.bind_tools``).
-    4. Send system prompt + world state snapshot as a HumanMessage.
-    5. If the LLM returns tool_calls → execute each one in order.
-    6. If the LLM returns plain text (models without tool-calling support)
-       → fall back to text-based parsing.
+    Three modes selected via ``Config.DECISION_MODE``:
+
+    * ``agent``  — Pure agent reasoning. No retrieval. Single LLM invoke.
+    * ``rag``    — Traditional RAG. Rules retrieved from the knowledge base
+                   *before* the LLM call and injected into the prompt.
+    * ``hybrid`` — Agentic RAG. The knowledge base is exposed as a
+                   LangChain tool (``query_knowledge_base``). The LLM decides
+                   each cycle whether to call it. If it does, a second invoke
+                   is performed with the retrieved rules injected.
+
+    Short-term memory (rolling session buffer) is injected in all modes when
+    available. Long-term ChromaDB memory is injected in ``rag`` and ``hybrid``
+    modes when ``USE_MEMORY=true``.
 
     Args:
         agent: Dict from ``create_agent()``.
         world_state: Current sensor + vision snapshot.
     """
+    from config import Config
+    cfg = Config()
+    mode = cfg.DECISION_MODE.lower()
+
     llm = agent["llm"]
     robot_actions: RobotActions = agent["robot_actions"]
     skill_registry: SkillRegistry = agent["skill_registry"]
+    rag_kb = agent.get("rag_kb")
+    short_term = agent.get("short_term_memory")
 
     # ------------------------------------------------------------------
-    # 1. Hard safety check — runs BEFORE consulting the LLM
-    # ------------------------------------------------------------------
-    # Note: people are friendly — robot greets them via greet_person skill.
-    # Only obstacle distances trigger hard safety blocks.
-
-    # ------------------------------------------------------------------
-    # 2. Build tools
+    # Build core tools (nav + skills) — used in all modes
     # ------------------------------------------------------------------
     skill_context = SkillContext(world_state=world_state, robot_actions=robot_actions)
     nav_tools = _build_navigation_tools(robot_actions)
     skill_tools = skill_registry.to_langchain_tools(skill_context)
-    all_tools = nav_tools + skill_tools
+    core_tools = nav_tools + skill_tools
 
     # ------------------------------------------------------------------
-    # 3. Build messages (optionally inject memory context)
+    # Short-term memory context (all modes)
     # ------------------------------------------------------------------
-    robot_memory = agent.get("memory")
-    memories: Optional[str] = None
-    if robot_memory is not None:
-        try:
-            from config import Config
-            if Config().USE_MEMORY:
-                memories = robot_memory.retrieve(world_state)
-        except Exception:
-            pass
+    short_term_context: Optional[str] = None
+    if short_term is not None:
+        short_term_context = short_term.summarise() or None
 
-    human_msg = HumanMessage(
-        content=_build_human_prompt(world_state, skill_registry, memories)
+    # ------------------------------------------------------------------
+    # Long-term memory context (rag + hybrid modes)
+    # ------------------------------------------------------------------
+    long_term_context: Optional[str] = None
+    if mode in ("rag", "hybrid"):
+        robot_memory = agent.get("memory")
+        if robot_memory is not None and cfg.USE_MEMORY:
+            try:
+                long_term_context = robot_memory.retrieve(world_state) or None
+            except Exception:
+                pass
+
+    stm_cycles = len(short_term) if short_term is not None else 0
+    print(
+        f"[BRAIN]   Mode: {mode.upper()} | STM: {stm_cycles} cycles"
+        f" | LTM: {'on' if long_term_context else 'off'}"
+        f" | RAG KB: {'ready' if rag_kb is not None else 'none'}"
     )
-    messages = [SystemMessage(content=ROBOT_SYSTEM_PROMPT), human_msg]
 
-    print(f"[SENSORS] {world_state}")
-    tool_names = ", ".join(t.name for t in all_tools)
-    print(f"[AGENT] Consulting LLM | tools: [{tool_names}]")
-
-    # ------------------------------------------------------------------
-    # 4. Invoke LLM with bound tools
-    # ------------------------------------------------------------------
     try:
-        llm_with_tools = llm.bind_tools(all_tools)
-        response = llm_with_tools.invoke(messages)
-
-        # ------------------------------------------------------------------
-        # 5. Execute tool calls (preferred path)
-        # ------------------------------------------------------------------
-        tool_calls = getattr(response, "tool_calls", None)
-        if tool_calls:
-            tool_map = {t.name: t for t in all_tools}
-            for tc in tool_calls:
-                tool_name = tc["name"]
-                tool_args = tc.get("args", {})
-                matched = tool_map.get(tool_name)
-                if matched:
-                    print(f"[TOOL] {tool_name}({tool_args})")
-                    matched.invoke(tool_args)
-                    _update_heading(agent, tool_name, tool_args)
-                    _store_memory(agent, world_state, tool_name)
-                else:
-                    print(f"[WARNING] LLM called unknown tool '{tool_name}' — ignoring")
+        # ==================================================================
+        # MODE: agent — pure reasoning, no retrieval
+        # ==================================================================
+        if mode == "agent":
+            stm_label = f"{stm_cycles} cycles" if stm_cycles else "empty"
+            print(f"[CONTEXT] Source: STM ({stm_label}) | RAG: none | LTM: none")
+            human_msg = HumanMessage(
+                content=build_human_prompt(
+                    world_state, skill_registry,
+                    short_term_context=short_term_context,
+                )
+            )
+            messages = [SystemMessage(content=ROBOT_SYSTEM_PROMPT), human_msg]
+            tool_list = ", ".join(t.name for t in core_tools)
+            print(f"[LLM]     Invoke 1/1 — {len(core_tools)} tools: [{tool_list}]")
+            response = llm.bind_tools(core_tools).invoke(messages)
+            action = _execute_response(response, core_tools, robot_actions, agent, world_state)
+            heading = agent.get("current_heading", 0.0)
+            print(f"[RESULT]  Action: {action or 'none'} | Heading: {heading:.0f}°")
+            _record_short_term(short_term, world_state, action)
             return
 
-        # ------------------------------------------------------------------
-        # 6. Text fallback (models without native tool-calling support)
-        # ------------------------------------------------------------------
-        content = (
-            response.content.strip().lower()
-            if hasattr(response, "content")
-            else str(response).strip().lower()
-        )
-        print(f"[FALLBACK] No tool calls received — parsing text: {content[:80]}")
-        fallen_action = _execute_text_fallback(content, robot_actions)
-        if fallen_action:
-            _update_heading(agent, fallen_action, {})
-            _store_memory(agent, world_state, fallen_action)
+        # ==================================================================
+        # MODE: rag — traditional RAG, always retrieve before LLM
+        # ==================================================================
+        if mode == "rag":
+            rag_context: Optional[str] = None
+            if rag_kb is not None:
+                print("[RAG]     Querying knowledge base...")
+                rag_context = rag_kb.retrieve(world_state) or None
+                rule_count = rag_context.count("Rule") if rag_context else 0
+                print(f"[RAG]     {rule_count} rules matched for current sensor state")
+            else:
+                print("[RAG]     No RAG KB configured — falling back to sensor-only prompt")
+            stm_label = f"{stm_cycles} cycles" if stm_cycles else "empty"
+            rag_label = f"{rag_context.count('Rule') if rag_context else 0} rules" if rag_context else "none"
+            ltm_label = "on" if long_term_context else "off"
+            print(f"[CONTEXT] Source: STM ({stm_label}) | RAG: {rag_label} | LTM: {ltm_label}")
+            human_msg = HumanMessage(
+                content=build_human_prompt(
+                    world_state, skill_registry,
+                    memories=long_term_context,
+                    rag_context=rag_context,
+                    short_term_context=short_term_context,
+                )
+            )
+            messages = [SystemMessage(content=ROBOT_SYSTEM_PROMPT), human_msg]
+            tool_list = ", ".join(t.name for t in core_tools)
+            print(f"[LLM]     Invoke 1/1 — {len(core_tools)} tools: [{tool_list}]")
+            response = llm.bind_tools(core_tools).invoke(messages)
+            action = _execute_response(response, core_tools, robot_actions, agent, world_state)
+            heading = agent.get("current_heading", 0.0)
+            print(f"[RESULT]  Action: {action or 'none'} | Heading: {heading:.0f}°")
+            _record_short_term(short_term, world_state, action)
+            return
+
+        # ==================================================================
+        # MODE: hybrid — Agentic RAG: expose KB as a tool, LLM decides
+        # ==================================================================
+        if mode == "hybrid":
+            # Build the query_knowledge_base tool (closure over rag_kb + world_state)
+            rag_context_holder: list[Optional[str]] = [None]
+
+            def query_knowledge_base(reason: str) -> str:  # noqa: D401
+                """Consult the navigation knowledge base for rules relevant to
+                the current sensor state.  Call this when the situation is
+                ambiguous or novel.  Skip it when the path is clear."""
+                if rag_kb is None:
+                    return "Knowledge base not available."
+                result = rag_kb.retrieve(world_state)
+                rag_context_holder[0] = result
+                return result or "No relevant rules found."
+
+            rag_tool = StructuredTool.from_function(
+                query_knowledge_base, name="query_knowledge_base"
+            )
+            all_tools = core_tools + [rag_tool]
+
+            stm_label = f"{stm_cycles} cycles" if stm_cycles else "empty"
+            ltm_label = "on" if long_term_context else "off"
+            print(f"[CONTEXT] Source: STM ({stm_label}) | LTM: {ltm_label} | RAG: not injected yet (LLM decides)")
+
+            # -- Invoke 1: LLM sees sensors + all tools incl. query_knowledge_base
+            human_msg = HumanMessage(
+                content=build_human_prompt(
+                    world_state, skill_registry,
+                    memories=long_term_context,
+                    short_term_context=short_term_context,
+                )
+            )
+            messages = [SystemMessage(content=ROBOT_SYSTEM_PROMPT), human_msg]
+            tool_list = ", ".join(t.name for t in all_tools)
+            print(f"[LLM]     Invoke 1/2 — {len(all_tools)} tools (incl. query_knowledge_base): [{tool_list}]")
+            response1 = llm.bind_tools(all_tools).invoke(messages)
+
+            tool_calls1 = getattr(response1, "tool_calls", None) or []
+            kb_calls = [tc for tc in tool_calls1 if tc["name"] == "query_knowledge_base"]
+            action_calls = [tc for tc in tool_calls1 if tc["name"] != "query_knowledge_base"]
+
+            if kb_calls:
+                # LLM chose to retrieve — execute KB call, then invoke again
+                for tc in kb_calls:
+                    reason = tc.get("args", {}).get("reason", "(no reason given)")
+                    print(f"[RAG]     LLM called query_knowledge_base — reason: '{reason}'")
+                    rag_tool.invoke(tc.get("args", {}))
+
+                retrieved = rag_context_holder[0]
+                rule_count = retrieved.count("Rule") if retrieved else 0
+                print(f"[RAG]     {rule_count} rules retrieved — injecting into Invoke 2")
+
+                # -- Invoke 2: inject retrieved rules, final action decision
+                human_msg2 = HumanMessage(
+                    content=build_human_prompt(
+                        world_state, skill_registry,
+                        memories=long_term_context,
+                        rag_context=retrieved,
+                        short_term_context=short_term_context,
+                    )
+                )
+                messages2 = [SystemMessage(content=ROBOT_SYSTEM_PROMPT), human_msg2]
+                tool_list2 = ", ".join(t.name for t in core_tools)
+                print(f"[LLM]     Invoke 2/2 — {len(core_tools)} tools (RAG injected): [{tool_list2}]")
+                response2 = llm.bind_tools(core_tools).invoke(messages2)
+                action = _execute_response(response2, core_tools, robot_actions, agent, world_state)
+            else:
+                # LLM skipped retrieval and called an action directly
+                print("[LLM]     LLM skipped retrieval — acting from Invoke 1 directly")
+                tool_map = {t.name: t for t in core_tools}
+                action = None
+                for tc in action_calls:
+                    matched = tool_map.get(tc["name"])
+                    if matched:
+                        print(f"[ACTION]  >> {tc['name']}({tc.get('args', {})})")
+                        matched.invoke(tc.get("args", {}))
+                        _update_heading(agent, tc["name"], tc.get("args", {}))
+                        _store_memory(agent, world_state, tc["name"])
+                        action = tc["name"]
+                if not action:
+                    # Fallback if LLM returned no tool calls at all
+                    content = getattr(response1, "content", "").strip().lower()
+                    action = _execute_text_fallback(content, robot_actions)
+
+            heading = agent.get("current_heading", 0.0)
+            print(f"[RESULT]  Action: {action or 'none'} | Heading: {heading:.0f}°")
+            _record_short_term(short_term, world_state, action)
+            return
+
+        # Unknown mode — safe default
+        print(f"[WARNING] Unknown DECISION_MODE '{mode}' — stopping")
+        robot_actions.stop()
 
     except Exception as e:
         print(f"[ERROR] Agent error: {e}")
@@ -203,17 +329,59 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _build_human_prompt(
+def _execute_response(
+    response,
+    all_tools: List[StructuredTool],
+    robot_actions: RobotActions,
+    agent: dict,
     world_state: WorldState,
-    skill_registry: SkillRegistry,
-    memories: Optional[str] = None,
-) -> str:
-    """Format the current world state into a human message for the LLM.
+) -> Optional[str]:
+    """Execute tool calls from an LLM response, or fall back to text parsing.
 
-    Delegates to ``brain.prompts.build_human_prompt`` so the logic stays in one
-    place.  The ``memories`` argument is forwarded for Phase 2 RAG injection.
+    Returns:
+        Name of the action executed, or ``None``.
     """
-    return build_human_prompt(world_state, skill_registry, memories)
+    tool_calls = getattr(response, "tool_calls", None)
+    if tool_calls:
+        tool_map = {t.name: t for t in all_tools}
+        last_action = None
+        for tc in tool_calls:
+            tool_name = tc["name"]
+            tool_args = tc.get("args", {})
+            matched = tool_map.get(tool_name)
+            if matched:
+                print(f"[ACTION]  >> {tool_name}({tool_args})")
+                matched.invoke(tool_args)
+                _update_heading(agent, tool_name, tool_args)
+                _store_memory(agent, world_state, tool_name)
+                last_action = tool_name
+            else:
+                print(f"[WARNING] LLM returned unknown tool '{tool_name}' — skipping")
+        return last_action
+
+    # Text fallback
+    content = (
+        response.content.strip().lower()
+        if hasattr(response, "content")
+        else str(response).strip().lower()
+    )
+    print(f"[FALLBACK] No tool_calls — parsing LLM text: '{content[:80]}'")
+    action = _execute_text_fallback(content, robot_actions)
+    if action:
+        _update_heading(agent, action, {})
+        _store_memory(agent, world_state, action)
+    return action
+
+
+def _record_short_term(
+    short_term, world_state: WorldState, action: Optional[str]
+) -> None:
+    """Record the completed cycle in short-term memory when available."""
+    if short_term is not None and action is not None:
+        try:
+            short_term.record(world_state, action)
+        except Exception:
+            pass
 
 
 def _execute_text_fallback(decision: str, robot_actions: RobotActions) -> None:
@@ -230,25 +398,25 @@ def _execute_text_fallback(decision: str, robot_actions: RobotActions) -> None:
     if "move_forward" in decision:
         distance = max(10, min(100, _extract_int(decision.split("move_forward")[-1], 30)))
         robot_actions.move_forward(distance)
-        print(f"[EXECUTED] move_forward {distance} cm")
+        print(f"[ACTION]  >> move_forward(distance_cm={distance}) [text fallback]")
         return "move_forward"
     elif "turn_right" in decision:
         degrees = max(15, min(90, _extract_int(decision.split("turn_right")[-1], 45)))
         robot_actions.turn_right(degrees)
-        print(f"[EXECUTED] turn_right {degrees} degrees")
+        print(f"[ACTION]  >> turn_right(degrees={degrees}) [text fallback]")
         return "turn_right"
     elif "turn_left" in decision:
         degrees = max(15, min(90, _extract_int(decision.split("turn_left")[-1], 45)))
         robot_actions.turn_left(degrees)
-        print(f"[EXECUTED] turn_left {degrees} degrees")
+        print(f"[ACTION]  >> turn_left(degrees={degrees}) [text fallback]")
         return "turn_left"
     elif "stop" in decision:
         robot_actions.stop()
-        print("[EXECUTED] stop")
+        print("[ACTION]  >> stop() [text fallback]")
         return "stop"
     else:
         robot_actions.move_forward(30)
-        print("[EXECUTED] move_forward 30 cm (default fallback)")
+        print("[ACTION]  >> move_forward(distance_cm=30) [default fallback]")
         return "move_forward"
 
 

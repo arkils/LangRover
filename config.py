@@ -51,9 +51,20 @@ class Config:
     # Simulation Settings
     SIMULATION_STEPS: int = int(os.getenv("SIMULATION_STEPS", "10"))
 
-    # Memory Settings (Phase 2)
+    # Memory Settings (Phase 2 — long-term ChromaDB)
     USE_MEMORY: bool = os.getenv("USE_MEMORY", "false").lower() == "true"
     CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
+
+    # Short-term memory (Week 4 — in-process rolling buffer)
+    SHORT_TERM_MEMORY_CYCLES: int = int(os.getenv("SHORT_TERM_MEMORY_CYCLES", "5"))
+
+    # RAG / Decision mode (Week 4)
+    # Values: "agent" | "rag" | "hybrid"
+    #   agent  = pure LLM reasoning, no retrieval
+    #   rag    = Traditional RAG — rules retrieved before every LLM call
+    #   hybrid = Agentic RAG — RAG KB exposed as a tool the LLM decides to call
+    DECISION_MODE: str = os.getenv("DECISION_MODE", "hybrid")
+    RAG_KNOWLEDGE_DIR: str = os.getenv("RAG_KNOWLEDGE_DIR", "./chroma_rag")
 
     def validate(self) -> None:
         """Validate configuration."""

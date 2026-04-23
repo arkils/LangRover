@@ -56,7 +56,10 @@ class WorldState(BaseModel):
     right_distance_cm: float = Field(
         ..., description="Distance to obstacle on right (cm)", ge=0, le=500
     )
-    
+    rear_distance_cm: float = Field(
+        200.0, description="Distance to obstacle behind (cm)", ge=0, le=500
+    )
+
     # Legacy simple target detection
     target_visible: bool = Field(..., description="Whether target is visible to robot")
     
@@ -81,5 +84,6 @@ class WorldState(BaseModel):
             f"Front: {self.front_distance_cm}cm | "
             f"Left: {self.left_distance_cm}cm | "
             f"Right: {self.right_distance_cm}cm | "
+            f"Rear: {self.rear_distance_cm}cm | "
             f"Target: {self.target_visible}{vision_info}"
         )

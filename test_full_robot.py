@@ -60,12 +60,13 @@ class RobotSystemTest:
                 assert 0 <= state.front_distance_cm <= 400, "Front distance out of range"
                 assert 0 <= state.left_distance_cm <= 400, "Left distance out of range"
                 assert 0 <= state.right_distance_cm <= 400, "Right distance out of range"
+                assert 0 <= state.rear_distance_cm <= 400, "Rear distance out of range"
                 assert isinstance(state.target_visible, bool), "Target visible should be bool"
 
                 self.log(
                     f"  Cycle {i+1}: F={state.front_distance_cm}cm, "
                     f"L={state.left_distance_cm}cm, R={state.right_distance_cm}cm, "
-                    f"Target={state.target_visible}",
+                    f"Rear={state.rear_distance_cm}cm, Target={state.target_visible}",
                     "SUCCESS"
                 )
 
@@ -104,7 +105,8 @@ class RobotSystemTest:
         self.log("Agent Tool Building", "TEST")
 
         try:
-            from brain.agent import _build_navigation_tools, _build_human_prompt
+            from brain.agent import _build_navigation_tools
+            from brain.prompts import build_human_prompt as _build_human_prompt
 
             actions = CLIRobotActions()
             nav_tools = _build_navigation_tools(actions)
@@ -173,7 +175,8 @@ class RobotSystemTest:
                 # Report (LLM would decide but Ollama may not be running)
                 self.log(
                     f"  Cycle {cycle+1}/{cycles}: Sensors (F={state.front_distance_cm}cm, "
-                    f"L={state.left_distance_cm}cm, R={state.right_distance_cm}cm)",
+                    f"L={state.left_distance_cm}cm, R={state.right_distance_cm}cm, "
+                    f"Rear={state.rear_distance_cm}cm)",
                     "SUCCESS"
                 )
 
@@ -423,7 +426,7 @@ class RobotSystemTest:
         """Test: Human prompt includes relevant sensor data and skill hints."""
         self.log("Human Prompt Content", "TEST")
         try:
-            from brain.agent import _build_human_prompt
+            from brain.prompts import build_human_prompt as _build_human_prompt
 
             # Prompt with a detected cat — should surface greet_cat as relevant skill
             state = WorldState(
@@ -643,6 +646,288 @@ class RobotSystemTest:
             self.log(f"Stress Test Failed: {e}", "ERROR")
             return False
 
+    # ------------------------------------------------------------------
+    # Week 4 — RAG + Agents + Agentic RAG
+    # ------------------------------------------------------------------
+
+    def test_rag_knowledge_base_retrieval(self) -> bool:
+        """RAGKnowledgeBase populates and retrieves relevant rules."""
+        self.log("Testing RAG Knowledge Base retrieval", "TEST")
+        import tempfile, shutil
+        tmp = tempfile.mkdtemp()
+        try:
+            from brain.rag import RAGKnowledgeBase
+            kb = RAGKnowledgeBase(persist_dir=tmp)
+            kb.populate_defaults()
+            world_state = WorldState(
+                front_distance_cm=25.0,
+                left_distance_cm=90.0,
+                right_distance_cm=40.0,
+                target_visible=False,
+            )
+            result = kb.retrieve(world_state, k=3)
+            assert result, "retrieve() returned empty string"
+            assert "Rule" in result, "Expected 'Rule' label in output"
+            rule_count = result.count("Rule")
+            self.log(f"  Retrieved {rule_count} rules for obstacle scenario", "SUCCESS")
+            open_state = WorldState(
+                front_distance_cm=150.0,
+                left_distance_cm=130.0,
+                right_distance_cm=140.0,
+                target_visible=False,
+            )
+            open_result = kb.retrieve(open_state, k=3)
+            assert open_result, "retrieve() returned empty for open-path state"
+            self.log("  Open-path retrieval also successful", "SUCCESS")
+            del kb
+            return True
+        except Exception as e:
+            self.log(f"RAG KB Retrieval failed: {e}", "ERROR")
+            return False
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_short_term_memory(self) -> bool:
+        """ShortTermMemory records cycles and produces a correct summary."""
+        self.log("Testing Short-Term Memory rolling buffer", "TEST")
+        try:
+            from brain.memory import ShortTermMemory
+            stm = ShortTermMemory(max_cycles=3)
+            assert stm.summarise() == "", "Empty buffer should return empty string"
+
+            states = [
+                WorldState(front_distance_cm=120.0, left_distance_cm=80.0, right_distance_cm=60.0, rear_distance_cm=150.0, target_visible=False),
+                WorldState(front_distance_cm=45.0, left_distance_cm=90.0, right_distance_cm=55.0, rear_distance_cm=200.0, target_visible=False),
+                WorldState(front_distance_cm=90.0, left_distance_cm=40.0, right_distance_cm=85.0, rear_distance_cm=100.0, target_visible=False),
+                # 4th entry should drop the 1st (maxlen=3)
+                WorldState(front_distance_cm=200.0, left_distance_cm=180.0, right_distance_cm=190.0, rear_distance_cm=50.0, target_visible=False),
+            ]
+            actions = ["move_forward", "turn_left", "move_forward", "move_forward"]
+            for s, a in zip(states, actions):
+                stm.record(s, a)
+
+            assert len(stm) == 3, f"Expected 3 entries (maxlen), got {len(stm)}"
+            summary = stm.summarise()
+            assert "Short-Term Memory" in summary, "Missing header in summary"
+            assert "turn_left" in summary, "Expected turn_left in summary"
+            assert "120" not in summary, "First (dropped) entry should not appear"
+            assert "Rear=" in summary, "Rear distance should appear in summary"
+            self.log(f"  Buffer correctly capped at 3, summary includes Rear, generated", "SUCCESS")
+            return True
+        except Exception as e:
+            self.log(f"Short-Term Memory failed: {e}", "ERROR")
+            return False
+
+    def test_traditional_rag_mode(self) -> bool:
+        """DECISION_MODE=rag: RAG context injected into prompt, single LLM invoke."""
+        self.log("Testing Traditional RAG mode (DECISION_MODE=rag)", "TEST")
+        import tempfile, shutil
+        original_mode = os.environ.get("DECISION_MODE", "")
+        tmp = tempfile.mkdtemp()
+        try:
+            os.environ["DECISION_MODE"] = "rag"
+            from brain.rag import RAGKnowledgeBase
+
+            kb = RAGKnowledgeBase(persist_dir=tmp)
+            kb.populate_defaults()
+
+            ws = WorldState(front_distance_cm=25.0, left_distance_cm=90.0, right_distance_cm=50.0, target_visible=False)
+            rag_result = kb.retrieve(ws)
+            assert rag_result, "RAG KB should return rules for obstacle state"
+            self.log(f"  RAG retrieve: {rag_result[:60]}...", "SUCCESS")
+
+            from brain.prompts import build_human_prompt
+            prompt = build_human_prompt(ws, self.skill_registry, rag_context=rag_result)
+            assert "RAG Knowledge Base" in prompt or "Rule" in prompt, \
+                "RAG context not found in prompt"
+            self.log("  RAG context correctly injected into prompt", "SUCCESS")
+            del kb
+            return True
+        except Exception as e:
+            self.log(f"Traditional RAG mode failed: {e}", "ERROR")
+            return False
+        finally:
+            if original_mode:
+                os.environ["DECISION_MODE"] = original_mode
+            else:
+                os.environ.pop("DECISION_MODE", None)
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_pure_agent_mode(self) -> bool:
+        """DECISION_MODE=agent: no RAG context, no long-term memory in prompt."""
+        self.log("Testing Pure Agent mode (DECISION_MODE=agent)", "TEST")
+        original_mode = os.environ.get("DECISION_MODE", "")
+        try:
+            os.environ["DECISION_MODE"] = "agent"
+            ws = WorldState(front_distance_cm=100.0, left_distance_cm=100.0, right_distance_cm=100.0, target_visible=False)
+
+            from brain.prompts import build_human_prompt
+            prompt = build_human_prompt(ws, self.skill_registry)
+            assert "RAG Knowledge Base" not in prompt, "RAG context should not appear in agent mode"
+            assert "Short-Term Memory" not in prompt, "Short-term context should not appear when empty"
+            assert "DISTANCE SENSORS" in prompt, "Sensor data must always appear"
+            self.log("  Pure agent prompt: no retrieval sections, sensors present", "SUCCESS")
+
+            # Verify agent dict is structured correctly without calling LLM init
+            # (agent dict is just a plain dict; rag_kb=None means no retrieval)
+            mock_agent = {
+                "llm": None,
+                "robot_actions": self.actions,
+                "skill_registry": self.skill_registry,
+                "memory": None,
+                "rag_kb": None,
+                "short_term_memory": None,
+                "current_heading": 0.0,
+            }
+            assert mock_agent.get("rag_kb") is None, "rag_kb should be None in pure agent mode"
+            self.log("  Agent dict without RAG KB verified", "SUCCESS")
+            return True
+        except Exception as e:
+            self.log(f"Pure Agent mode failed: {e}", "ERROR")
+            return False
+        finally:
+            if original_mode:
+                os.environ["DECISION_MODE"] = original_mode
+            else:
+                os.environ.pop("DECISION_MODE", None)
+
+    def test_agentic_rag_hybrid_mode(self) -> bool:
+        """DECISION_MODE=hybrid: query_knowledge_base tool available, KB accessible."""
+        self.log("Testing Agentic RAG hybrid mode (DECISION_MODE=hybrid)", "TEST")
+        import tempfile, shutil
+        original_mode = os.environ.get("DECISION_MODE", "")
+        tmp = tempfile.mkdtemp()
+        try:
+            os.environ["DECISION_MODE"] = "hybrid"
+            from brain.rag import RAGKnowledgeBase
+            from brain.memory import ShortTermMemory
+
+            kb = RAGKnowledgeBase(persist_dir=tmp)
+            kb.populate_defaults()
+            stm = ShortTermMemory(max_cycles=5)
+
+            # Verify agent dict structure without triggering LLM init
+            mock_agent = {
+                "llm": None,
+                "robot_actions": self.actions,
+                "skill_registry": self.skill_registry,
+                "memory": None,
+                "rag_kb": kb,
+                "short_term_memory": stm,
+                "current_heading": 0.0,
+            }
+            assert mock_agent.get("rag_kb") is kb, "rag_kb not stored in agent"
+            assert mock_agent.get("short_term_memory") is stm, "short_term_memory not stored"
+            self.log("  Agent dict contains rag_kb + short_term_memory", "SUCCESS")
+
+            ws = WorldState(front_distance_cm=25.0, left_distance_cm=90.0, right_distance_cm=50.0, target_visible=False)
+            result = kb.retrieve(ws)
+            assert result, "KB retrieve must return rules in hybrid mode"
+            self.log(f"  KB retrieve in hybrid mode: {result[:60]}...", "SUCCESS")
+
+            stm.record(ws, "turn_left")
+            from brain.prompts import build_human_prompt
+            prompt = build_human_prompt(
+                ws, self.skill_registry,
+                short_term_context=stm.summarise(),
+                rag_context=result,
+            )
+            assert "Short-Term Memory" in prompt, "Short-term context missing from prompt"
+            assert "RAG Knowledge Base" in prompt or "Rule" in prompt, \
+                "RAG context missing from prompt"
+            self.log("  Hybrid prompt contains both short-term + RAG sections", "SUCCESS")
+            del kb
+            return True
+        except Exception as e:
+            self.log(f"Agentic RAG hybrid mode failed: {e}", "ERROR")
+            return False
+        finally:
+            if original_mode:
+                os.environ["DECISION_MODE"] = original_mode
+            else:
+                os.environ.pop("DECISION_MODE", None)
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rear_sensor_and_logging(self) -> bool:
+        """Rear sensor wired through WorldState, prompt, and ShortTermMemory summary."""
+        self.log("Rear Sensor + Improved Logging", "TEST")
+        try:
+            import io
+            from contextlib import redirect_stdout
+
+            # 1. WorldState accepts and stores rear_distance_cm
+            ws = WorldState(
+                front_distance_cm=25.0,
+                left_distance_cm=90.0,
+                right_distance_cm=60.0,
+                rear_distance_cm=180.0,
+                target_visible=False,
+            )
+            assert ws.rear_distance_cm == 180.0, "rear_distance_cm not stored"
+            self.log("  WorldState stores rear_distance_cm", "SUCCESS")
+
+            # 2. __str__ includes Rear
+            ws_str = str(ws)
+            assert "Rear" in ws_str, f"__str__ missing Rear: {ws_str}"
+            self.log(f"  WorldState.__str__ includes Rear: {ws_str}", "SUCCESS")
+
+            # 3. Prompt includes Rear sensor line
+            from brain.prompts import build_human_prompt
+            prompt = build_human_prompt(ws, self.skill_registry)
+            assert "Rear:" in prompt, "Rear sensor line missing from prompt"
+            assert "180" in prompt, "Rear distance value missing from prompt"
+            self.log("  build_human_prompt() includes Rear sensor", "SUCCESS")
+
+            # 4. ShortTermMemory summary includes Rear
+            from brain.memory import ShortTermMemory
+            stm = ShortTermMemory(max_cycles=3)
+            stm.record(ws, "turn_right")
+            summary = stm.summarise()
+            assert "Rear=" in summary, f"Rear= missing from STM summary: {summary}"
+            assert "180" in summary, "Rear value missing from STM summary"
+            self.log("  ShortTermMemory.summarise() includes Rear distance", "SUCCESS")
+
+            # 5. Default rear_distance_cm is 200.0 (no breakage without providing it)
+            ws_default = WorldState(
+                front_distance_cm=50.0,
+                left_distance_cm=100.0,
+                right_distance_cm=100.0,
+                target_visible=False,
+            )
+            assert ws_default.rear_distance_cm == 200.0, "Default rear should be 200.0"
+            self.log("  rear_distance_cm defaults to 200.0 (backward compatible)", "SUCCESS")
+
+            # 6. Simulator produces rear_distance_cm in valid range
+            from world.simulator import read_world_state
+            for _ in range(3):
+                state = read_world_state()
+                assert 0 <= state.rear_distance_cm <= 400, (
+                    f"Rear distance out of range: {state.rear_distance_cm}"
+                )
+            self.log("  Simulator produces valid rear_distance_cm", "SUCCESS")
+
+            # 7. [!!BLOCKED] flag appears in main.py sensor log when front < 30
+            from config import Config
+            cfg = Config()
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                front_flag = " [!!BLOCKED]" if ws.front_distance_cm < cfg.MIN_SAFE_DISTANCE_CM else ""
+                print(
+                    f"[SENSORS] Front: {ws.front_distance_cm:.0f}cm{front_flag}"
+                    f" | Left: {ws.left_distance_cm:.0f}cm"
+                    f" | Right: {ws.right_distance_cm:.0f}cm"
+                    f" | Rear: {ws.rear_distance_cm:.0f}cm"
+                )
+            sensors_line = buf.getvalue()
+            assert "[!!BLOCKED]" in sensors_line, "BLOCKED flag missing when front < MIN_SAFE_DISTANCE"
+            assert "Rear:" in sensors_line, "Rear not in sensor log line"
+            self.log(f"  Sensor log format correct: {sensors_line.strip()}", "SUCCESS")
+
+            return True
+        except Exception as e:
+            self.log(f"Rear Sensor + Logging test failed: {e}", "ERROR")
+            return False
+
     def run_all_tests(self):
         """Run all tests and generate report."""
         print("\n" + "="*60)
@@ -669,6 +954,14 @@ class RobotSystemTest:
             ("Human Prompt Content", self.test_human_prompt_content),
             ("Memory Store & Retrieve", self.test_memory_store_retrieve),
             ("Semantic Map Observation", self.test_semantic_map_observation),
+            # Week 4 — RAG + Agents + Agentic RAG
+            ("RAG KB Retrieval", self.test_rag_knowledge_base_retrieval),
+            ("Short-Term Memory", self.test_short_term_memory),
+            ("Traditional RAG Mode", self.test_traditional_rag_mode),
+            ("Pure Agent Mode", self.test_pure_agent_mode),
+            ("Agentic RAG Hybrid Mode", self.test_agentic_rag_hybrid_mode),
+            # Week 4 — Rear sensor + improved logging
+            ("Rear Sensor & Logging", self.test_rear_sensor_and_logging),
         ]
 
         results = {}

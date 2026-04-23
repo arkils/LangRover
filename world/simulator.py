@@ -104,7 +104,7 @@ def read_world_state() -> WorldState:
         front_distance = distances.get('front', 200.0) or 200.0
         left_distance = distances.get('left', 200.0) or 200.0
         right_distance = distances.get('right', 200.0) or 200.0
-        # Rear sensor available but not used in current WorldState model
+        rear_distance = distances.get('rear', 200.0) or 200.0
         
         # Target detection would need additional sensor/camera logic
         target_visible = False  # TODO: Implement target detection
@@ -113,6 +113,7 @@ def read_world_state() -> WorldState:
         front_distance = random.uniform(20, 400)
         left_distance = random.uniform(20, 400)
         right_distance = random.uniform(20, 400)
+        rear_distance = random.uniform(20, 400)
         
         # Randomly make target visible 30% of the time
         target_visible = random.random() < 0.3
@@ -127,6 +128,7 @@ def read_world_state() -> WorldState:
         front_distance_cm=round(front_distance, 2),
         left_distance_cm=round(left_distance, 2),
         right_distance_cm=round(right_distance, 2),
+        rear_distance_cm=round(rear_distance, 2),
         target_visible=target_visible,
         vision=vision_data,
     )

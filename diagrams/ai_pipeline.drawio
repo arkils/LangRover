@@ -1,0 +1,273 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="ai_pipeline" name="AI Agent Pipeline">
+    <mxGraphModel dx="975" dy="595" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="2200" math="0" shadow="1">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;" value="LangRover — AI Agent Pipeline" vertex="1">
+          <mxGeometry height="40" width="760" x="200" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="phase0_bg" parent="1" style="swimlane;startSize=25;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" value="STARTUP" vertex="1">
+          <mxGeometry height="120" width="760" x="200" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="run_sh" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="run.sh&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;activate venv&lt;br/&gt;start Ollama&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="220" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="config" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Config&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;reads env vars&lt;br/&gt;LLM_PROVIDER, USE_MEMORY…&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="140" x="380" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="skill_reg" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="SkillRegistry&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;register greet_cat&lt;br/&gt;greet_dog, greet_person&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="140" x="560" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="init_memory" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="RobotMemory&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;ChromaDB open/create&lt;br/&gt;decisions + observations&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="140" x="740" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="e_runsh_config" edge="1" parent="1" source="run_sh" style="edgeStyle=orthogonalEdgeStyle;" target="config">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_config_skills" edge="1" parent="1" source="config" style="edgeStyle=orthogonalEdgeStyle;" target="skill_reg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_skills_mem" edge="1" parent="1" source="skill_reg" style="edgeStyle=orthogonalEdgeStyle;" target="init_memory">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="phase1_bg" parent="1" style="swimlane;startSize=25;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=11;" value="STEP 1 — DATA COLLECTION  (world/simulator.py)" vertex="1">
+          <mxGeometry height="130" width="760" x="200" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="sensors" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Sensors&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;HC-SR04 ultrasonic&lt;br/&gt;front / left / right (cm)&lt;br/&gt;(real or random floats)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="140" x="220" y="255" as="geometry" />
+        </mxCell>
+        <mxCell id="camera" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Camera&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;PiCamera3 or MockCamera&lt;br/&gt;captures frame&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="140" x="400" y="255" as="geometry" />
+        </mxCell>
+        <mxCell id="yolo" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="YOLOv8 Detector&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;runs inference on frame&lt;br/&gt;→ DetectedObject list&lt;br/&gt;(name, confidence, bbox)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="150" x="580" y="255" as="geometry" />
+        </mxCell>
+        <mxCell id="e_cam_yolo" edge="1" parent="1" source="camera" style="edgeStyle=orthogonalEdgeStyle;" target="yolo">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="phase2_bg" parent="1" style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=11;" value="STEP 2 — WORLD STATE  (world/state.py)" vertex="1">
+          <mxGeometry height="100" width="760" x="200" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="worldstate" parent="phase2_bg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=9;" value="WorldState  (Pydantic model)&lt;br&gt;&lt;font&gt;front_distance_cm, left_distance_cm, right_distance_cm&lt;br&gt;vision: VisionData → List[DetectedObject]&lt;br&gt;people_count, motion_detected, frame_quality&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="540" x="110" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sens_ws" edge="1" parent="1" source="sensors" style="edgeStyle=orthogonalEdgeStyle;" target="worldstate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_yolo_ws" edge="1" parent="1" source="yolo" style="edgeStyle=orthogonalEdgeStyle;" target="worldstate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="phase3_bg" parent="1" style="swimlane;startSize=25;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=11;" value="STEP 3 — CHROMADB MEMORY RETRIEVAL  (brain/memory.py)" vertex="1">
+          <mxGeometry height="130" width="760" x="200" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="chroma_query" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="memory.retrieve(world_state)&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;similarity query:&lt;br/&gt;&#39;Front=Xcm, Left=Ycm, Right=Zcm&#39;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="220" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="chroma_dec" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="decisions collection&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;top-3 similar past actions&lt;br/&gt;&#39;Front=45cm… → turn_right&#39;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="440" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="chroma_obs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="observations collection&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;top-3 similar past sightings&lt;br/&gt;&#39;cat(91%) @ heading=45°&#39;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="660" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ws_query" edge="1" parent="1" source="worldstate" style="edgeStyle=orthogonalEdgeStyle;" target="chroma_query">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="580" y="490" />
+              <mxPoint x="305" y="490" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_query_dec" edge="1" parent="1" source="chroma_query" style="edgeStyle=orthogonalEdgeStyle;" target="chroma_dec">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_query_obs" edge="1" parent="1" source="chroma_query" style="edgeStyle=orthogonalEdgeStyle;" target="chroma_obs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="305" y="620" />
+              <mxPoint x="745" y="620" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase4_bg" parent="1" style="swimlane;startSize=25;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=11;" value="STEP 4 — HARD SAFETY RULES  (brain/agent.py — before LLM)" vertex="1">
+          <mxGeometry height="150" width="760" x="200" y="670" as="geometry" />
+        </mxCell>
+        <mxCell id="safety_check" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="person / cat / dog&lt;br/&gt;in detected objects?" vertex="1">
+          <mxGeometry height="100" width="160" x="220" y="700" as="geometry" />
+        </mxCell>
+        <mxCell id="skill_exec_early" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Execute Skill directly&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;greet_person / greet_cat / greet_dog&lt;br/&gt;No LLM call — return early&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="200" x="440" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="safety_pass" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Proceed to&lt;br/&gt;LLM call" vertex="1">
+          <mxGeometry height="60" width="120" x="700" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="e_safety_yes" edge="1" parent="1" source="safety_check" style="edgeStyle=orthogonalEdgeStyle;fontStyle=1;" target="skill_exec_early" value="YES">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_safety_no" edge="1" parent="1" source="safety_check" style="edgeStyle=orthogonalEdgeStyle;fontStyle=1;" target="safety_pass" value="NO">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="760" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase5_bg" parent="1" style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=11;" value="STEP 5 — PROMPT CONSTRUCTION  (brain/prompts.py)" vertex="1">
+          <mxGeometry height="130" width="760" x="200" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="sys_prompt" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="SystemMessage&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;ROBOT_SYSTEM_PROMPT&lt;br/&gt;role, safety rules,&lt;br/&gt;one-tool-per-cycle rule&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="150" x="220" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="human_prompt" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="HumanMessage&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;sensor readings + YOLO objects&lt;br/&gt;relevant skills + ChromaDB context&lt;br/&gt;(build_human_prompt)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="180" x="430" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="mem_inject" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Memory context&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;ChromaDB results&lt;br/&gt;injected into HumanMessage&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="160" x="670" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="e_chroma_inject" edge="1" parent="1" source="chroma_dec" style="edgeStyle=orthogonalEdgeStyle;dashed=1;" target="mem_inject">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_obs_inject" edge="1" parent="1" source="chroma_obs" style="edgeStyle=orthogonalEdgeStyle;dashed=1;" target="mem_inject">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="phase6_bg" parent="1" style="swimlane;startSize=25;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=11;" value="STEP 6 — LANGCHAIN LLM  (models/llm.py + brain/agent.py)" vertex="1">
+          <mxGeometry height="160" width="760" x="200" y="1010" as="geometry" />
+        </mxCell>
+        <mxCell id="tools_nav" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Navigation Tools&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;StructuredTool:&lt;br/&gt;move_forward&lt;br/&gt;turn_left / turn_right / stop&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="150" x="220" y="1045" as="geometry" />
+        </mxCell>
+        <mxCell id="tools_skills" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Skill Tools&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;StructuredTool:&lt;br/&gt;greet_cat, greet_dog&lt;br/&gt;greet_person&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="150" x="400" y="1045" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_invoke" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="llm.bind_tools(all_tools)&lt;br/&gt;llm.invoke([sys_msg, human_msg])&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;ChatOllama (qwen2.5) or ChatOpenAI&lt;br/&gt;Single API call — NOT a ReAct loop&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="230" x="600" y="1040" as="geometry" />
+        </mxCell>
+        <mxCell id="e_nav_llm" edge="1" parent="1" source="tools_nav" style="edgeStyle=orthogonalEdgeStyle;" target="llm_invoke">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_skill_llm" edge="1" parent="1" source="tools_skills" style="edgeStyle=orthogonalEdgeStyle;" target="llm_invoke">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="phase7_bg" parent="1" style="swimlane;startSize=25;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=11;" value="STEP 7 — PARSE LLM RESPONSE" vertex="1">
+          <mxGeometry height="260" width="760" x="200" y="1200" as="geometry" />
+        </mxCell>
+        <mxCell id="text_fallback" parent="phase7_bg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Text fallback path&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;keyword-parse response&lt;br/&gt;move_forward / turn_left …&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="170" x="100" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="resp_check" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" value="response has&lt;br/&gt;tool_calls?" vertex="1">
+          <mxGeometry height="100" width="160" x="300" y="1225" as="geometry" />
+        </mxCell>
+        <mxCell id="toolcall_path" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Tool call path&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;iterate tool_calls list&lt;br/&gt;matched_tool.invoke(args)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="530" y="1240" as="geometry" />
+        </mxCell>
+        <mxCell id="e_resp_yes" edge="1" parent="1" source="resp_check" style="edgeStyle=orthogonalEdgeStyle;fontStyle=1;" target="toolcall_path" value="YES">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_resp_no" edge="1" parent="1" source="resp_check" style="edgeStyle=orthogonalEdgeStyle;fontStyle=1;" target="text_fallback" value="NO">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="phase8_bg" parent="1" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;" value="STEP 8 — ACTION EXECUTION  (actions/)" vertex="1">
+          <mxGeometry height="130" width="760" x="200" y="1492" as="geometry" />
+        </mxCell>
+        <mxCell id="robot_actions" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="RobotActions.execute()&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;move_forward / turn_left&lt;br/&gt;turn_right / stop&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="300" y="1527" as="geometry" />
+        </mxCell>
+        <mxCell id="cli_actions" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="CLIRobotActions&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;print to terminal&lt;br/&gt;(simulation mode)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="140" x="520" y="1527" as="geometry" />
+        </mxCell>
+        <mxCell id="gpio_actions" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="GPIORobotActions&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;JSON over USB serial&lt;br/&gt;→ ESP32 → motors&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="140" x="700" y="1527" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ra_cli" edge="1" parent="1" source="robot_actions" style="edgeStyle=orthogonalEdgeStyle;" target="cli_actions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ra_gpio" edge="1" parent="1" source="robot_actions" style="edgeStyle=orthogonalEdgeStyle;" target="gpio_actions">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="385" y="1612" />
+              <mxPoint x="770" y="1612" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="phase9_bg" parent="1" style="swimlane;startSize=25;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=11;" value="STEP 9 — CHROMADB STORAGE  (brain/memory.py)" vertex="1">
+          <mxGeometry height="130" width="760" x="200" y="1652" as="geometry" />
+        </mxCell>
+        <mxCell id="store_obs" parent="phase9_bg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="store_observation()&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;observations collection&lt;br/&gt;YOLO objects + heading°&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="550" y="48" as="geometry" />
+        </mxCell>
+        <mxCell id="store_decision" parent="phase9_bg" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="store_decision()&lt;br/&gt;&lt;font style=&#39;font-size:10px&#39;&gt;decisions collection&lt;br/&gt;&#39;Front=Xcm… → action_name&#39;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="330" y="48" as="geometry" />
+        </mxCell>
+        <mxCell id="loop_label" parent="phase9_bg" style="text;html=1;strokeColor=#d79b00;fillColor=#ffe6cc;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;" value="Next cycle:&lt;br/&gt;ChromaDB context&lt;br/&gt;feeds back into Step 3" vertex="1">
+          <mxGeometry height="60" width="150" x="60" y="48" as="geometry" />
+        </mxCell>
+        <mxCell id="e_store_loop" edge="1" parent="phase9_bg" source="store_decision" style="edgeStyle=elbowEdgeStyle;elbow=vertical;exitX=0;exitY=0.5;entryX=0;entryY=0.5;dashed=1;strokeColor=#d79b00;fontStyle=2;" target="loop_label" value="persists to disk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_startup_data" edge="1" parent="1" source="init_memory" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" target="sensors">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="790" y="200" />
+              <mxPoint x="290" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_chroma_safety" edge="1" parent="1" source="chroma_query" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" target="safety_check">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pass_prompt" edge="1" parent="1" source="safety_pass" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" target="sys_prompt">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="690" y="740" />
+              <mxPoint x="690" y="820" />
+              <mxPoint x="295" y="820" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_prompt_llm" edge="1" parent="1" source="human_prompt" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" target="llm_invoke">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sysprompt_llm" edge="1" parent="1" source="sys_prompt" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" target="llm_invoke">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="295" y="960" />
+              <mxPoint x="715" y="960" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_llm_resp" edge="1" parent="1" source="llm_invoke" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" target="resp_check">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="560" y="1085" />
+              <mxPoint x="560" y="1150" />
+              <mxPoint x="380" y="1150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_tool_ra" edge="1" parent="1" source="toolcall_path" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" target="robot_actions">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="520" y="1270" />
+              <mxPoint x="520" y="1430" />
+              <mxPoint x="385" y="1430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_fallback_ra" edge="1" parent="1" source="text_fallback" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" target="robot_actions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ra_store" edge="1" parent="1" source="robot_actions" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" target="store_decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ws_store_obs" edge="1" parent="1" source="worldstate" style="edgeStyle=orthogonalEdgeStyle;dashed=1;" target="store_obs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="435" />
+              <mxPoint x="150" y="1640" />
+              <mxPoint x="835" y="1640" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
