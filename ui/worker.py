@@ -138,12 +138,7 @@ def robot_worker(
     # Apply sidebar overrides — these win over .env values
     for k, v in config_overrides.items():
         os.environ[k] = str(v)
-
-    # Force simulation mode — UI worker never touches real hardware
-    os.environ["USE_GPIO_ACTIONS"] = "false"
-    os.environ["USE_REAL_SENSORS"] = "false"
-    os.environ["USE_REAL_CAMERA"] = "false"
-    os.environ["USE_REAL_VISION"] = "false"
+    # USE_REAL_SENSORS / USE_REAL_CAMERA / USE_REAL_VISION come from config_overrides above
 
     # Read all config values directly from os.environ so we always get the
     # current values — Config dataclass defaults are frozen at first import.
@@ -172,7 +167,13 @@ def robot_worker(
             except ValueError:
                 pass  # already registered
 
-        robot_actions = CLIRobotActions()
+        use_gpio = os.environ.get("USE_GPIO_ACTIONS", "false").lower() == "true"
+        if use_gpio:
+            from actions.gpio_actions import GPIORobotActions
+            default_speed = int(os.environ.get("DEFAULT_MOTOR_SPEED", "70"))
+            robot_actions = GPIORobotActions(default_speed=default_speed)
+        else:
+            robot_actions = CLIRobotActions()
         short_term = ShortTermMemory(max_cycles=stm_cycles)
 
         # Optional RAG knowledge base

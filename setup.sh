@@ -26,6 +26,21 @@ if [ "$IS_PI" = true ]; then
         echo "✗ Failed to install system dependencies (run: sudo apt-get update first)"
         exit 1
     fi
+
+    # Install Ollama if not already installed
+    if ! command -v ollama &> /dev/null; then
+        echo ""
+        echo "  Installing Ollama..."
+        curl -fsSL https://ollama.com/install.sh | sh
+        if [ $? -eq 0 ]; then
+            echo "✓ Ollama installed"
+        else
+            echo "✗ Failed to install Ollama"
+            exit 1
+        fi
+    else
+        echo "✓ Ollama already installed"
+    fi
 else
     echo "Step 1: Skipping Pi system dependencies (not a Raspberry Pi)"
 fi

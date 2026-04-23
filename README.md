@@ -103,7 +103,11 @@ LangRover separates the robot's cognitive layer (LangChain agent) from the hardw
 ### Prerequisites
 
 - Python 3.10+
-- Ollama (for local models) - Download from [ollama.ai](https://ollama.ai)
+- Ollama (for local models) — install on Linux/Raspberry Pi:
+  ```bash
+  curl -fsSL https://ollama.com/install.sh | sh
+  ```
+  Or download from [ollama.ai](https://ollama.ai)
 - qwen2.5:0.5b model installed locally
 
 ### Quick Start (Recommended)

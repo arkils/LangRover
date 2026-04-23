@@ -97,10 +97,28 @@ with st.sidebar:
         ["ollama", "openai"],
         index=0,
     )
-    ollama_model = st.text_input("Ollama Model", value="qwen2.5:0.5b")
+    if llm_provider == "ollama":
+        ollama_model = st.selectbox(
+            "Ollama Model",
+            ["qwen2.5:3b", "qwen2.5:0.5b", "qwen2.5:1.5b", "qwen2.5:7b", "llama3.2:3b", "llama3.1:8b"],
+            index=0,
+        )
+    else:
+        ollama_model = st.selectbox(
+            "OpenAI Model",
+            ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4"],
+            index=0,
+        )
     sim_steps = st.slider("Simulation Steps", min_value=1, max_value=50, value=10)
     cycle_delay = st.slider("Cycle Delay (s)", min_value=0, max_value=10, value=1)
     stm_cycles = st.slider("STM Cycles (memory)", min_value=1, max_value=10, value=5)
+
+    st.divider()
+    st.subheader("Hardware")
+    use_real_sensors = st.toggle("Real Sensors", value=False)
+    use_real_camera  = st.toggle("Real Camera", value=False)
+    use_real_vision  = st.toggle("Real Vision (YOLO)", value=False)
+    use_gpio_actions = st.toggle("Real Motors (GPIO)", value=False)
 
     st.divider()
     st.subheader("Controls")
@@ -130,6 +148,10 @@ with st.sidebar:
             "SIMULATION_STEPS":     str(sim_steps),
             "CYCLE_DELAY":          str(cycle_delay),
             "SHORT_TERM_MEMORY_CYCLES": str(stm_cycles),
+            "USE_REAL_SENSORS":     str(use_real_sensors).lower(),
+            "USE_REAL_CAMERA":      str(use_real_camera).lower(),
+            "USE_REAL_VISION":      str(use_real_vision).lower(),
+            "USE_GPIO_ACTIONS":     str(use_gpio_actions).lower(),
         }
 
         thread = threading.Thread(

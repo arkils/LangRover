@@ -59,17 +59,19 @@ class ESP32Serial:
     def _initialize_connection(self):
         """Initialize serial connection to ESP32."""
         try:
-            self.serial_conn = serial.Serial(
-                port=self.port,
-                baudrate=self.baudrate,
-                timeout=self.timeout,
-                write_timeout=self.timeout
-            )
+            # Open port WITHOUT asserting DTR/RTS — asserting DTR resets the ESP32
+            # via its auto-reset circuit (DTR→EN pin), so we connect without touching it.
+            self.serial_conn = serial.Serial()
+            self.serial_conn.port = self.port
+            self.serial_conn.baudrate = self.baudrate
+            self.serial_conn.timeout = self.timeout
+            self.serial_conn.write_timeout = self.timeout
+            self.serial_conn.dtr = False
+            self.serial_conn.rts = False
+            self.serial_conn.open()
             
-            # Wait for ESP32 to reset after serial connection
-            time.sleep(2)
-            
-            # Clear any startup messages
+            # Brief pause then clear any accumulated messages
+            time.sleep(0.3)
             self.serial_conn.reset_input_buffer()
             self.serial_conn.reset_output_buffer()
             
@@ -145,17 +147,24 @@ class ESP32Serial:
             Response dictionary or None if timeout
         """
         start_time = time.time()
-        while time.time() - start_time < timeout:
-            try:
-                response = self.response_queue.get(timeout=0.1)
-                if response_type is None or response.get("type") == response_type:
-                    return response
-                else:
-                    # Put back if not the type we're looking for
-                    self.response_queue.put(response)
-            except queue.Empty:
-                continue
-        return None
+        discarded = []
+        result = None
+        try:
+            while time.time() - start_time < timeout:
+                try:
+                    response = self.response_queue.get(timeout=0.1)
+                    if response_type is None or response.get("type") == response_type:
+                        result = response
+                        break
+                    else:
+                        discarded.append(response)
+                except queue.Empty:
+                    continue
+        finally:
+            # Restore non-matching messages so other callers can see them
+            for item in discarded:
+                self.response_queue.put(item)
+        return result
     
     def _ping(self) -> bool:
         """
@@ -192,7 +201,9 @@ class ESP32Serial:
             cmd["duration"] = duration
         
         if self._send_command(cmd):
-            response = self._wait_for_response(timeout=0.5, response_type="ack")
+            # Ack arrives after the motor finishes running, so timeout = duration + margin
+            ack_timeout = (duration if duration is not None else 0) + 2.0
+            response = self._wait_for_response(timeout=ack_timeout, response_type="ack")
             return response is not None and response.get("status") == "ok"
         return False
     
@@ -216,7 +227,8 @@ class ESP32Serial:
             cmd["duration"] = duration
         
         if self._send_command(cmd):
-            response = self._wait_for_response(timeout=0.5, response_type="ack")
+            ack_timeout = (duration if duration is not None else 0) + 2.0
+            response = self._wait_for_response(timeout=ack_timeout, response_type="ack")
             return response is not None and response.get("status") == "ok"
         return False
     
@@ -240,7 +252,8 @@ class ESP32Serial:
             cmd["duration"] = duration
         
         if self._send_command(cmd):
-            response = self._wait_for_response(timeout=0.5, response_type="ack")
+            ack_timeout = (duration if duration is not None else 0) + 2.0
+            response = self._wait_for_response(timeout=ack_timeout, response_type="ack")
             return response is not None and response.get("status") == "ok"
         return False
     
@@ -264,7 +277,8 @@ class ESP32Serial:
             cmd["duration"] = duration
         
         if self._send_command(cmd):
-            response = self._wait_for_response(timeout=0.5, response_type="ack")
+            ack_timeout = (duration if duration is not None else 0) + 2.0
+            response = self._wait_for_response(timeout=ack_timeout, response_type="ack")
             return response is not None and response.get("status") == "ok"
         return False
     

@@ -57,7 +57,7 @@ class GPIORobotActions(RobotActions):
         
         print(f"[ACTION] Moving forward {distance_cm} cm (~{duration:.1f}s)")
         self.motors.move_forward(speed=self.default_speed, duration=duration)
-        time.sleep(duration)  # wait for physical movement to complete
+        # ack arrives after motor finishes — no extra sleep needed
     
     def turn_left(self, degrees: int):
         """
@@ -77,7 +77,7 @@ class GPIORobotActions(RobotActions):
         
         print(f"[ACTION] Turning left {degrees} degrees (~{duration:.1f}s)")
         self.motors.turn_left(speed=self.default_speed, duration=duration)
-        time.sleep(duration)  # wait for physical movement to complete
+        # ack arrives after motor finishes — no extra sleep needed
     
     def turn_right(self, degrees: int):
         """
@@ -97,7 +97,7 @@ class GPIORobotActions(RobotActions):
         
         print(f"[ACTION] Turning right {degrees} degrees (~{duration:.1f}s)")
         self.motors.turn_right(speed=self.default_speed, duration=duration)
-        time.sleep(duration)  # wait for physical movement to complete
+        # ack arrives after motor finishes — no extra sleep needed
     
     def stop(self):
         """Stop all robot motors immediately."""

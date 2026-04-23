@@ -136,33 +136,8 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
     # ------------------------------------------------------------------
     # 1. Hard safety check — runs BEFORE consulting the LLM
     # ------------------------------------------------------------------
-    # Note: people are friendly — robot greets them via greet_person skill.
-    # Only obstacle distances trigger hard safety blocks.
-
-    # Pre-LLM hard rules: greet detected people/animals immediately
-    detected_names = [obj.name for obj in world_state.vision.objects]
-    skill_context_early = SkillContext(world_state=world_state, robot_actions=robot_actions)
-
-    if world_state.vision.people_count > 0 or "person" in detected_names:
-        skill = skill_registry.get("greet_person")
-        if skill:
-            print(f"[HARD RULE] Person detected — executing greet_person")
-            skill.execute(skill_context_early)
-            return
-
-    if "cat" in detected_names:
-        skill = skill_registry.get("greet_cat")
-        if skill:
-            print(f"[HARD RULE] Cat detected — executing greet_cat")
-            skill.execute(skill_context_early)
-            return
-
-    if "dog" in detected_names:
-        skill = skill_registry.get("greet_dog")
-        if skill:
-            print(f"[HARD RULE] Dog detected — executing greet_dog")
-            skill.execute(skill_context_early)
-            return
+    # Only hard rule: front distance is zero (physical collision imminent).
+    # Everything else (people, animals, objects) is passed to the LLM.
 
     # ------------------------------------------------------------------
     # 2. Build core tools (nav + skills) — used in all modes

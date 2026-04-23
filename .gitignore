@@ -69,3 +69,7 @@ runs/
 
 # Streamlit UI — runtime camera frames
 ui/temp/
+
+# ChromaDB — auto-populated vector stores (not stored in repo)
+chroma_db/
+chroma_rag/

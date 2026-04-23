@@ -123,8 +123,8 @@ Adding a new action: add to ABC → implement in both `CLIRobotActions` and `GPI
 
 ## Safety Rules (hard-coded before LLM is consulted)
 1. `front_distance_cm < 30` → never `move_forward`
-2. People are **not obstacles** — `people_count > 0` → call `greet_person` skill
-3. `turn_left` blocked if `left_distance_cm < 25`, same for right
+2. `turn_left` blocked if `left_distance_cm < 25`, same for right
+3. Everything else (people, animals, objects) — passed to the LLM; it decides which skill or action to call
 
 ---
 

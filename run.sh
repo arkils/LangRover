@@ -35,6 +35,14 @@ echo "LangRover - Startup"
 echo "================================"
 echo ""
 
+# Load .env if present
+if [ -f ".env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source .env
+    set +a
+fi
+
 # Check if venv exists
 if [ ! -d "venv" ]; then
     echo "✗ Virtual environment not found!"
@@ -86,7 +94,7 @@ if [ "$NO_OLLAMA" = false ]; then
     # Check model availability
     echo ""
     echo "Step 3: Checking model availability..."
-    MODEL_TO_USE=${MODEL:-"qwen2.5:0.5b"}
+    MODEL_TO_USE=${MODEL:-${OLLAMA_MODEL:-"qwen2.5:0.5b"}}
     
     if ollama list 2>&1 | grep -q "^${MODEL_TO_USE}"; then
         echo "✓ Model '$MODEL_TO_USE' is available"
