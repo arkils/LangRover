@@ -23,3 +23,9 @@ pyserial>=3.5
 # Hailo AI HAT+ (optional - for local AI inference on Pi 5)
 # hailort
 # hailo_model_zoo
+
+# Streamlit UI
+streamlit>=1.35.0
+streamlit-autorefresh>=1.0.1
+pandas>=2.0.0
+Pillow>=10.0.0

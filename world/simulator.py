@@ -81,7 +81,7 @@ def get_sensors():
     return _sensor_array
 
 
-def read_world_state() -> WorldState:
+def read_world_state(frame_out: list | None = None) -> WorldState:
     """
     Read the current world state from sensors and camera.
 
@@ -92,6 +92,11 @@ def read_world_state() -> WorldState:
     On laptop (default):
     - Returns realistic randomized sensor values
     - Uses mock vision detector
+
+    Args:
+        frame_out: Optional list; if provided the raw camera frame (numpy
+                   array or None for mock) is appended so callers (e.g. the
+                   Streamlit UI) can save a JPEG without re-capturing.
 
     Returns:
         WorldState: Current sensory state of the robot.
@@ -121,6 +126,8 @@ def read_world_state() -> WorldState:
     # Get vision data from detector
     camera = get_camera()
     frame = camera.capture_frame()
+    if frame_out is not None:
+        frame_out.append(frame)
     detector = get_detector()
     vision_data = detector.detect(frame)
 
