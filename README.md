@@ -38,7 +38,7 @@ LangRover separates the robot's cognitive layer (LangChain agent) from the hardw
 │  Robotic Hardware                                │
 │  - 4x DC Motors                                  │
 │  - 4x HC-SR04 Ultrasonic Sensors                 │
-│  - TB6612FNG Motor Driver ICs                     │
+│  - TB6612FNG Motor Driver ICs                    │
 └──────────────────────────────────────────────────┘
 ```
 
