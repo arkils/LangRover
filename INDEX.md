@@ -10,6 +10,9 @@
 ### For Running the Robot
 → [VISION_QUICKSTART.md](VISION_QUICKSTART.md) - **2-minute quick start**
 
+### For Running the Dashboard
+→ [README.md](README.md) - **See Streamlit Dashboard section**
+
 ### For Understanding Vision
 → [VISION_COMPLETE.md](VISION_COMPLETE.md) - **Feature overview and test results**
 
@@ -41,6 +44,12 @@
 .\run.ps1
 ```
 See: [VISION_QUICKSTART.md](VISION_QUICKSTART.md)
+
+### "I want to compare decision modes visually"
+```powershell
+streamlit run ui/app.py
+```
+Use the sidebar to switch between `agent`, `rag`, and `hybrid` and inspect the per-cycle decision summary.
 
 ### "I want to understand the vision system"
 Read in order:
@@ -74,10 +83,15 @@ Read in order:
 - **[brain/agent.py](brain/agent.py)** - LLM tool calling agent with skill + nav tools
 - **[brain/prompts.py](brain/prompts.py)** - System prompts with vision & skill rules
 
+### UI (Live Dashboard)
+- **[ui/app.py](ui/app.py)** - Streamlit dashboard entry point
+- **[ui/worker.py](ui/worker.py)** - Background robot loop + cycle capture
+- **[ui/components.py](ui/components.py)** - Decision trace, summary, history, sensors
+
 ### Skills (Object-Triggered Behaviours)
 - **[skills/base.py](skills/base.py)** - `Skill` ABC + `SkillContext`
 - **[skills/registry.py](skills/registry.py)** - `SkillRegistry` (register, lookup, LangChain tools)
-- **[skills/builtin.py](skills/builtin.py)** - `CatGreetingSkill`, `DogGreetingSkill`, `PersonSafetySkill`
+- **[skills/builtin.py](skills/builtin.py)** - `CatGreetingSkill`, `DogGreetingSkill`, `PersonGreetingSkill`
 
 ### Vision (Computer Vision)
 - **[vision/camera.py](vision/camera.py)** - Pi Camera 3 & Mock camera
@@ -103,9 +117,11 @@ Read in order:
 ### Core Features
 - ✅ Autonomous decision-making with LangChain
 - ✅ Local Ollama integration (qwen2.5:0.5b)
-- ✅ Distance sensor simulation (3-axis)
+- ✅ Distance sensor simulation (4-axis, includes rear)
 - ✅ Target detection
 - ✅ Virtual environment isolation
+- ✅ Streamlit dashboard with per-cycle decision traces
+- ✅ `agent` / `rag` / `hybrid` decision modes
 
 ### Vision Features
 - ✅ Object detection (YOLO / mock)
@@ -120,7 +136,7 @@ Read in order:
 ### Skill System
 - ✅ `Skill` ABC — extensible interface
 - ✅ `SkillRegistry` — register skills, expose as LangChain tools
-- ✅ Built-in: `greet_cat`, `greet_dog`, `person_safety_stop`
+- ✅ Built-in: `greet_cat`, `greet_dog`, `greet_person`
 - ✅ YOLO detections trigger relevant skills automatically
 - ✅ LLM picks skill tools via `bind_tools()` (real tool calling)
 

@@ -362,7 +362,7 @@ def create_llm(config):
         from langchain_openai import ChatOpenAI
         
         return ChatOpenAI(
-            model_name="gpt-4",
+            model_name="gpt-4o-mini",
             api_key=config.OPENAI_API_KEY,
         )
 ```

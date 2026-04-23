@@ -7,10 +7,12 @@ LangRover is a Python framework for building autonomous robots that run on lapto
 LangRover separates the robot's cognitive layer (LangChain agent) from the hardware layer (motors, sensors, actuators). This allows:
 
 - **Development on laptops** using simulated sensors and CLI output
+- **Live monitoring in Streamlit** with per-cycle camera, sensor, and decision traces
 - **ESP32-based hardware control** for reliable, real-time motor and sensor operations
 - **Easy transition to real hardware** via abstracted interfaces
 - **LLM provider flexibility** (OpenAI, local models via Ollama, on-device with Hailo)
 - **Vision capabilities** with YOLO object detection and people safety features
+- **Three decision modes**: `agent`, `rag`, and `hybrid` (Agentic RAG)
 
 ## 🏗️ Architecture
 
@@ -44,8 +46,8 @@ LangRover separates the robot's cognitive layer (LangChain agent) from the hardw
 
 ```
 ┌─────────────────────────────────────────────┐
-│  brain/agent.py - LangChain Agent           │
-│  (Structured Chat ReAct Zero Shot)          │
+│  brain/agent.py - Single-call tool agent    │
+│  (agent / rag / hybrid decision modes)      │
 └─────────────────────────────────────────────┘
          ↓ (tools)           ↓ (sensors)
 ┌─────────────────────┐    ┌──────────────────┐
@@ -73,8 +75,14 @@ LangRover separates the robot's cognitive layer (LangChain agent) from the hardw
   - `prompts.py` - System prompts with constraints and strategy
   
 - **`world/`** - Environment simulation and state management
-  - `state.py` - `WorldState` Pydantic model (sensor readings + vision)
+  - `state.py` - `WorldState` Pydantic model (front/left/right/rear + vision)
   - `simulator.py` - Simulated sensor data generator
+
+- **`ui/`** - Streamlit dashboard
+  - `app.py` - Streamlit entry point
+  - `worker.py` - Background robot loop for the dashboard
+  - `state.py` - Thread-safe UI state and cycle snapshots
+  - `components.py` - Sensor, trace, history, and cycle renderers
   
 - **`actions/`** - Robot control interface
   - `base.py` - Abstract `RobotActions` interface
@@ -222,8 +230,25 @@ The project is configured to use your local Ollama instance by default. No API k
 This will:
 - ✓ Activate virtual environment
 - ✓ Check Ollama is running (start if needed)
-- ✓ Pull gemma3:270m model if missing
+- ✓ Pull qwen2.5:0.5b model if missing
 - ✓ Run the agent
+
+### Streamlit Dashboard
+
+Run the live dashboard instead of the CLI loop:
+
+```powershell
+streamlit run ui/app.py
+```
+
+The dashboard shows:
+- 4 distance sensors (`front`, `left`, `right`, `rear`)
+- current camera frame (or simulation placeholder)
+- detected objects / people / motion
+- full per-cycle decision trace
+- a decision-cycle summary showing whether the robot used RAG and how many LLM invokes happened
+
+Use the sidebar to switch between `agent`, `rag`, and `hybrid` modes so you can compare the behavior directly.
 
 ### Using Different Ollama Models
 
@@ -302,11 +327,11 @@ Simulation Steps: 10
 
 ### Default Configuration
 
-LangRover is configured to use **Ollama with gemma3:270m** by default.
+LangRover is configured to use **Ollama with qwen2.5:0.5b** by default.
 
 ```
 LLM_PROVIDER = "ollama"      # Default: Local Ollama
-OLLAMA_MODEL = "gemma3:270m" # Your model
+OLLAMA_MODEL = "qwen2.5:0.5b" # Default model
 OLLAMA_BASE_URL = "http://localhost:11434"
 ```
 
@@ -322,6 +347,9 @@ $env:OLLAMA_MODEL = "mistral"
 
 # Use remote Ollama instance
 $env:OLLAMA_BASE_URL = "http://192.168.1.100:11434"
+
+# Choose decision mode
+$env:DECISION_MODE = "hybrid"   # or "agent" / "rag"
 
 # Switch to OpenAI
 $env:LLM_PROVIDER = "openai"
@@ -343,6 +371,9 @@ export OLLAMA_MODEL=mistral
 
 # Use remote Ollama instance
 export OLLAMA_BASE_URL=http://192.168.1.100:11434
+
+# Choose decision mode
+export DECISION_MODE=hybrid
 
 # Switch to OpenAI
 export LLM_PROVIDER=openai
@@ -368,7 +399,8 @@ cp .env.example .env
 # Ollama settings
 LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=gemma3:270m
+OLLAMA_MODEL=qwen2.5:0.5b
+DECISION_MODE=hybrid
 
 # Or switch to OpenAI
 # LLM_PROVIDER=openai
@@ -390,13 +422,22 @@ python main.py
 |---------|---------|---------|
 | `LLM_PROVIDER` | `ollama` | Which LLM to use |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | `gemma3:270m` | Which model to use |
+| `OLLAMA_MODEL` | `qwen2.5:0.5b` | Which model to use |
+| `DECISION_MODE` | `hybrid` | `agent`, `rag`, or `hybrid` (Agentic RAG) |
 | `SIMULATION_STEPS` | `10` | Number of decision cycles |
 | `DECISION_CYCLE_DELAY` | `1` | Seconds between cycles |
 | `VERBOSE` | `true` | Show agent reasoning |
 | `USE_REAL_CAMERA` | `false` | Use Pi Camera 3 vs mock |
 | `USE_REAL_VISION` | `false` | Use YOLO detection vs mock |
 | `YOLO_MODEL` | `nano` | YOLO model size (nano/small/medium/large) |
+
+### Decision Modes
+
+- `agent` - pure tool-calling LLM, no retrieval
+- `rag` - always retrieve rules from the RAG knowledge base before the LLM call
+- `hybrid` - expose `query_knowledge_base` as a tool so the LLM decides when to retrieve
+
+The Streamlit UI makes these differences visible cycle-by-cycle through the decision summary and trace panels.
 
 ## Vision System
 

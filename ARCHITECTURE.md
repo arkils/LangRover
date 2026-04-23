@@ -148,27 +148,35 @@ START
 REPEAT (10 cycles):
   ├─ [world/simulator.py] read_world_state()
   │   ├─ Generate/read distance sensors
+     │   ├─ Include rear distance sensor
   │   ├─ [vision/vision.py] get_vision_detector().detect()
   │   │   ├─ If USE_REAL_VISION: YOLOVisionDetector (Pi Camera frame)
   │   │   └─ Else: MockVisionDetector
   │   └─ Return WorldState with vision data
   │
   ├─ [brain/agent.py] decide_and_act(world_state)
-  │   ├─ Build nav tools   (move_forward, turn_left, turn_right, stop)
-  │   ├─ Build skill tools (greet_cat, greet_dog, greet_person, ...)
-  │   ├─ Inject RELEVANT SKILLS hint for detected objects
-  │   ├─ Call llm.bind_tools(nav_tools + skill_tools).invoke(messages)
-  │   ├─ If tool_calls in response → execute each tool in order
-  │   └─ Else (plain text fallback) → parse and execute action
+     │   ├─ Apply hard rules first (e.g. greet_person / greet_cat / greet_dog)
+     │   ├─ Build nav tools   (move_forward, turn_left, turn_right, stop)
+     │   ├─ Build skill tools (greet_cat, greet_dog, greet_person, ...)
+     │   ├─ Read DECISION_MODE
+     │   │   ├─ agent  → single LLM invoke, no retrieval
+     │   │   ├─ rag    → retrieve KB rules first, inject them, then LLM invoke
+     │   │   └─ hybrid → expose query_knowledge_base tool, LLM decides whether to retrieve
+     │   ├─ Inject short-term memory in all modes
+     │   ├─ Inject long-term memory in rag / hybrid when enabled
+     │   ├─ Execute returned tool call(s)
+     │   └─ If plain text fallback is returned → parse and execute action
   │
   └─ Display results
-     [SENSORS]  Front: 360cm | Objects: cat(88%) | People: 0
-     [TOOL]     greet_cat({})
-     [SKILL]    Hello, cat! =^.^=
-     [ACTION]   Turning left 20 degrees
-     [ACTION]   Turning right 40 degrees
-     [ACTION]   Turning left 20 degrees
-     [SKILL]    greet_cat complete: Cat greeted with a friendly wiggle
+           [SENSORS]  Front: 360cm | Left: 97cm | Right: 372cm | Rear: 184cm
+           [VISION]   cat(88%) | People: 0 | Motion: no
+           [BRAIN]    Mode: HYBRID | STM: 3 cycles | LTM: off | RAG KB: ready
+           [CONTEXT]  Source: STM (3 cycles) | LTM: off | RAG: not injected yet (LLM decides)
+           [LLM]      Invoke 1/2 — tools incl. query_knowledge_base
+           [RAG]      LLM called query_knowledge_base
+           [LLM]      Invoke 2/2 — final action selection
+           [ACTION]   >> greet_cat()
+           [RESULT]   Action: greet_cat | Heading: 0°
 
 END
 ```
@@ -178,22 +186,51 @@ END
 ```
 ┌──────────────┐
 │ WORLD STATE  │ Contains:
-└──────────────┘ - Distance: front, left, right (cm)
+└──────────────┘ - Distance: front, left, right, rear (cm)
        │         - Target: visible (bool)
        │         - Vision: Objects, People, Motion, Faces
        ↓
 ┌──────────────┐
 │ AGENT        │ Process:
-└──────────────┘ 1. Build nav tools + skill tools
-       │         2. Inject RELEVANT SKILLS hint into prompt
-       │         3. Call LLM with bind_tools()
-       │         4. Execute returned tool calls
+└──────────────┘ 1. Apply hard-rule skills when required
+                │         2. Build nav tools + skill tools
+                │         3. Inject RELEVANT SKILLS hint into prompt
+                │         4. Depending on DECISION_MODE:
+                │            - agent  → LLM only
+                │            - rag    → retrieve then LLM
+                │            - hybrid → LLM may call query_knowledge_base
+                │         5. Execute returned tool calls
        ↓
 ┌──────────────┐
 │ ACTION /     │ Either a navigation primitive:
 │ SKILL        │   move_forward(cm) | turn_left(°) | turn_right(°) | stop()
 └──────────────┘ Or a skill sequence:
                    e.g. greet_cat → turn_left(20) + turn_right(40) + turn_left(20)
+```
+
+## Decision Modes
+
+```
+DECISION_MODE=agent
+     Sensors + vision + STM
+               ↓
+     LLM chooses action/skill tool
+
+DECISION_MODE=rag
+     Sensors + vision
+               ↓
+     Retrieve relevant KB rules
+               ↓
+     LLM chooses action/skill tool with rules injected
+
+DECISION_MODE=hybrid
+     Sensors + vision + query_knowledge_base tool
+               ↓
+     LLM decides whether retrieval is necessary
+               ↓
+     Optional second invoke with retrieved rules injected
+               ↓
+     Final action/skill tool
 ```
 
 ## Skill System

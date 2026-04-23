@@ -4,6 +4,11 @@
 
 All requested features implemented and tested successfully.
 
+Recent additions now included in the codebase:
+- Streamlit dashboard in `ui/` with live per-cycle sensor, camera, and decision views
+- `rear_distance_cm` wired end-to-end through state, simulator, memory, prompts, and tests
+- Three decision modes: `agent`, `rag`, and `hybrid` (Agentic RAG)
+
 ## Current Project Structure
 
 ```
@@ -18,7 +23,7 @@ LangRover/
 │
 ├── 🧠 Brain (Decision Making)
 │   ├── brain/
-│   │   ├── agent.py                 # LLM agent with vision integration
+│   │   ├── agent.py                 # LLM agent with agent/rag/hybrid modes
 │   │   ├── prompts.py               # System prompts with vision rules
 │   │   └── __init__.py
 │   └── models/
@@ -34,8 +39,16 @@ LangRover/
 │
 ├── 🌍 World (Sensors & State)
 │   ├── world/
-│   │   ├── state.py                 # WorldState + VisionData models
+│   │   ├── state.py                 # WorldState + VisionData models (incl. rear sensor)
 │   │   ├── simulator.py             # Simulated sensor data generator
+│   │   └── __init__.py
+│
+├── 🖥️ UI (NEW!)
+│   ├── ui/
+│   │   ├── app.py                   # Streamlit dashboard entry point
+│   │   ├── worker.py                # Background robot loop for UI
+│   │   ├── state.py                 # Thread-safe UI state + cycle events
+│   │   ├── components.py            # Dashboard render helpers
 │   │   └── __init__.py
 │
 ├── 🤖 Actions (Robot Control)
@@ -73,9 +86,11 @@ LangRover/
 | **Autonomous Robot Framework** | ✅ Complete | Core LangChain agent with decision-making |
 | **Local Ollama Integration** | ✅ Complete | qwen2.5:0.5b default, no API keys |
 | **Virtual Environment Isolation** | ✅ Complete | Zero global package pollution |
-| **Distance Sensor Simulation** | ✅ Complete | 3-axis ultrasonic sensors |
+| **Distance Sensor Simulation** | ✅ Complete | 4-axis ultrasonic sensors including rear |
 | **Target Detection** | ✅ Complete | Binary target visible flag |
 | **Computer Vision** | ✅ Complete | Object/person detection |
+| **Decision Modes** | ✅ Complete | `agent`, `rag`, and `hybrid` (Agentic RAG) |
+| **Streamlit Dashboard** | ✅ Complete | Live cycle summaries, traces, and camera view |
 | **Pi Camera 3 Support** | ✅ Complete | Real & mock implementations |
 | **YOLO Detection** | ✅ Complete | Real object detection (optional) |
 | **People Safety Protocol** | ✅ Complete | Immediate stop if people detected |
@@ -90,13 +105,14 @@ LangRover/
 
 ### Decision Making
 - ✅ LLM-based reasoning (Ollama qwen2.5:0.5b)
+- ✅ Traditional RAG and Agentic RAG modes
 - ✅ Safety constraints enforced
 - ✅ Vision-aware planning
 - ✅ Multi-sensor integration
 - ✅ Action execution with feedback
 
 ### Sensors
-- ✅ Distance (front, left, right)
+- ✅ Distance (front, left, right, rear)
 - ✅ Target detection
 - ✅ Vision (objects, people, motion, faces)
 - ✅ Confidence scoring
@@ -158,6 +174,17 @@ Results:
 - ✅ Action execution
 - ✅ Real-time feedback
 
+### Dashboard Mode
+```powershell
+streamlit run ui/app.py
+```
+
+The dashboard adds:
+- ✅ decision-cycle summaries showing whether RAG was consulted
+- ✅ full per-cycle traces (`[BRAIN]`, `[CONTEXT]`, `[LLM]`, `[RAG]`, `[ACTION]`, `[RESULT]`)
+- ✅ camera frame / placeholder view
+- ✅ sensor and history panels for comparing modes visually
+
 ### Example Output
 ```
 [VISION] Using mock vision detector (simulation mode)
@@ -196,6 +223,7 @@ All via environment variables (or .env file):
 LLM_PROVIDER=ollama                    # or "openai"
 OLLAMA_MODEL=qwen2.5:0.5b
 OLLAMA_BASE_URL=http://localhost:11434
+DECISION_MODE=hybrid                   # or "agent" / "rag"
 
 # Vision
 USE_REAL_CAMERA=false                  # true on Pi
