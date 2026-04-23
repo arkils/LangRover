@@ -109,7 +109,7 @@ with st.sidebar:
     active_run = status in ("starting", "running", "paused")
 
     # ── Start ────────────────────────────────────────────────────────────────
-    if ctrl_cols[0].button("▶ Start", use_container_width=True, disabled=active_run):
+    if ctrl_cols[0].button("▶ Start", width="stretch", disabled=active_run):
         # Tear down any previous run
         if st.session_state.stop_event:
             st.session_state.stop_event.set()
@@ -147,14 +147,14 @@ with st.sidebar:
         st.rerun()
 
     # ── Stop ─────────────────────────────────────────────────────────────────
-    if ctrl_cols[1].button("⏹ Stop", use_container_width=True, disabled=(status not in ("starting", "running", "paused"))):
+    if ctrl_cols[1].button("⏹ Stop", width="stretch", disabled=(status not in ("starting", "running", "paused"))):
         st.session_state.stop_event.set()
         st.session_state.pause_event.set()   # unblock thread so it can exit
         st.rerun()
 
     # ── Pause / Resume ───────────────────────────────────────────────────────
     pause_label = "▶ Resume" if status == "paused" else "⏸ Pause"
-    if st.button(pause_label, use_container_width=True, disabled=(status not in ("running", "paused"))):
+    if st.button(pause_label, width="stretch", disabled=(status not in ("running", "paused"))):
         pe = st.session_state.pause_event
         if pe.is_set():
             pe.clear()    # pause
@@ -165,7 +165,7 @@ with st.sidebar:
         st.rerun()
 
     # ── Single Step ──────────────────────────────────────────────────────────
-    if st.button("⏭ Step", use_container_width=True, disabled=(status != "paused")):
+    if st.button("⏭ Step", width="stretch", disabled=(status != "paused")):
         st.session_state.step_event.set()
         st.session_state.pause_event.set()   # allow the one cycle to run
         st.rerun()

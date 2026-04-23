@@ -152,7 +152,7 @@ def render_camera_frame(frame_path: Optional[str]) -> None:
     """Display the most recent camera frame (real or placeholder)."""
     if frame_path:
         try:
-            st.image(frame_path, use_container_width=True)
+            st.image(frame_path, width="stretch")
             return
         except Exception:
             pass
@@ -267,7 +267,7 @@ def render_decision_cycles(history: List[CycleEvent]) -> None:
             "Context": summary["context"],
         })
 
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +296,7 @@ def render_stm_table(history: List[CycleEvent]) -> None:
             "Heading":f"{ev.heading:.0f}°",
         })
     df = pd.DataFrame(rows)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
 
 
 # ---------------------------------------------------------------------------
