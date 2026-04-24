@@ -197,16 +197,16 @@
         <mxCell id="col_hybrid" parent="panel_after" style="swimlane;startSize=46;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=13;rounded=1;opacity=80;" value="DECISION_MODE=hybrid&#xa;Agentic RAG — LLM Decides Whether to Retrieve" vertex="1">
           <mxGeometry height="910" width="510" x="1040" y="238" as="geometry" />
         </mxCell>
-        <mxCell id="hyb_desc" parent="col_hybrid" style="text;fontSize=11;fontStyle=2;align=center;" value="query_knowledge_base is a LangChain StructuredTool.&#xa;LLM picks it — or skips it — each cycle." vertex="1">
+        <mxCell id="hyb_desc" parent="col_hybrid" style="text;fontSize=11;fontStyle=2;align=center;" value="query_knowledge_base is MANDATORY per cycle (hybrid_mode=True).&#xa;LLM always retrieves rules first — then picks an action." vertex="1">
           <mxGeometry height="36" width="470" x="20" y="52" as="geometry" />
         </mxCell>
-        <mxCell id="hyb_prompt1" parent="col_hybrid" style="rounded=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" value="build_human_prompt()&#xa;sensors + short-term only&#xa;(no RAG yet)" vertex="1">
+        <mxCell id="hyb_prompt1" parent="col_hybrid" style="rounded=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" value="build_human_prompt(hybrid_mode=True)&#xa;sensors + short-term only&#xa;closing: MANDATORY call query_knowledge_base first" vertex="1">
           <mxGeometry height="60" width="410" x="50" y="106" as="geometry" />
         </mxCell>
-        <mxCell id="hyb_llm1" parent="col_hybrid" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="llm.invoke() — Invoke 1&#xa;nav + skills + query_knowledge_base tool" vertex="1">
+        <mxCell id="hyb_llm1" parent="col_hybrid" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="llm.invoke() — Invoke 1/2&#xa;nav + skills + query_knowledge_base tool&#xa;(prompt mandates KB call before any action)" vertex="1">
           <mxGeometry height="60" width="410" x="50" y="210" as="geometry" />
         </mxCell>
-        <mxCell id="hyb_diamond" parent="col_hybrid" style="rhombus;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" value="LLM called&#xa;query_knowledge_base?" vertex="1">
+        <mxCell id="hyb_diamond" parent="col_hybrid" style="rhombus;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" value="KB rules&#xa;retrieved?&#xa;(expected: always YES)" vertex="1">
           <mxGeometry height="80" width="250" x="130" y="314" as="geometry" />
         </mxCell>
         <mxCell id="hyb_yes_lbl" parent="col_hybrid" style="text;fontSize=12;fontStyle=1;fontColor=#d6b656;" value="YES — retrieve" vertex="1">
@@ -215,22 +215,22 @@
         <mxCell id="hyb_kb_retrieve" parent="col_hybrid" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="RAGKnowledgeBase.retrieve()&#xa;returns matched rules string" vertex="1">
           <mxGeometry height="54" width="410" x="50" y="440" as="geometry" />
         </mxCell>
-        <mxCell id="hyb_prompt2" parent="col_hybrid" style="rounded=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" value="build_human_prompt()&#xa;sensors + short-term + retrieved rules" vertex="1">
+        <mxCell id="hyb_prompt2" parent="col_hybrid" style="rounded=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" value="build_human_prompt()&#xa;sensors + short-term + retrieved rules&#xa;(rules always injected at this stage)" vertex="1">
           <mxGeometry height="54" width="410" x="50" y="540" as="geometry" />
         </mxCell>
-        <mxCell id="hyb_llm2" parent="col_hybrid" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="llm.invoke() — Invoke 2&#xa;nav + skills only (no KB tool)" vertex="1">
+        <mxCell id="hyb_llm2" parent="col_hybrid" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" value="llm.invoke() — Invoke 2/2&#xa;nav + skills only (KB tool removed)&#xa;GUARD: blocks hallucinated skill calls" vertex="1">
           <mxGeometry height="60" width="410" x="50" y="642" as="geometry" />
         </mxCell>
         <mxCell id="hyb_action" parent="col_hybrid" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" value="RobotActions" vertex="1">
           <mxGeometry height="50" width="410" x="50" y="752" as="geometry" />
         </mxCell>
-        <mxCell id="hyb_no_lbl" parent="col_hybrid" style="text;fontSize=12;fontStyle=1;fontColor=#6c8ebf;" value="NO — acts directly (1 invoke)" vertex="1">
+        <mxCell id="hyb_no_lbl" parent="col_hybrid" style="text;fontSize=12;fontStyle=1;fontColor=#b85450;" value="NO — rare fallback only&#xa;(acts from Invoke 1 directly)" vertex="1">
           <mxGeometry height="40" width="200" x="310" y="382" as="geometry" />
         </mxCell>
         <mxCell id="hyb_stm" parent="col_hybrid" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="ShortTermMemory.record()" vertex="1">
           <mxGeometry height="40" width="410" x="50" y="850" as="geometry" />
         </mxCell>
-        <mxCell id="hyb_tag" parent="col_hybrid" style="text;fontSize=11;fontColor=#d6b656;fontStyle=1;align=center;" value="Log: [Agentic RAG — LLM chose/skipped retrieval]" vertex="1">
+        <mxCell id="hyb_tag" parent="col_hybrid" style="text;fontSize=11;fontColor=#d6b656;fontStyle=1;align=center;" value="Log: [LLM] Invoke 1/2 … [RAG] rules retrieved … [LLM] Invoke 2/2 … [GUARD] blocked? … [ACTION]" vertex="1">
           <mxGeometry height="28" width="470" x="20" y="900" as="geometry" />
         </mxCell>
         <mxCell id="ehyb1" edge="1" parent="col_hybrid" source="hyb_prompt1" style="edgeStyle=orthogonalEdgeStyle;" target="hyb_llm1">

@@ -62,7 +62,10 @@ def _save_frame(raw_frame, step: int) -> Optional[str]:
             import numpy as np
             from PIL import Image
             if isinstance(raw_frame, np.ndarray):
-                Image.fromarray(raw_frame).save(str(dest), "JPEG")
+                # OpenCV captures in BGR; convert to RGB before saving so
+                # colours are not inverted in the Streamlit display.
+                frame_rgb = raw_frame[..., ::-1] if raw_frame.ndim == 3 and raw_frame.shape[2] == 3 else raw_frame
+                Image.fromarray(frame_rgb).save(str(dest), "JPEG")
                 return str(dest)
         except Exception:
             pass

@@ -42,9 +42,9 @@ Skill Strategy:
 You MUST call exactly one tool. Do not reply with plain text.
 
 Knowledge Base Tool (Agentic RAG — hybrid mode only):
-- query_knowledge_base: Call this when the situation is ambiguous or novel and
-  you want to consult stored navigation rules.  Skip it when the situation is
-  clear (e.g. an obvious obstacle or a well-known object in front of you).
+- query_knowledge_base: In hybrid mode you MUST call this tool FIRST, before
+  any navigation or skill tool.  It retrieves stored navigation rules relevant
+  to the current sensor state.  Use those rules to guide your next action.
 """
 
 
@@ -54,6 +54,7 @@ def build_human_prompt(
     memories: Optional[str] = None,
     rag_context: Optional[str] = None,
     short_term_context: Optional[str] = None,
+    hybrid_mode: bool = False,
 ) -> str:
     """Build the human-turn message for the LLM.
 
@@ -134,6 +135,14 @@ def build_human_prompt(
     if short_term_context and short_term_context.strip():
         short_term_section = f"\n{short_term_context.strip()}\n"
 
+    closing = (
+        "MANDATORY: You MUST call query_knowledge_base FIRST before taking any"
+        " navigation or skill action. Do NOT call move_forward, turn_left,"
+        " turn_right, stop, or any skill until you have retrieved the rules."
+        if hybrid_mode
+        else "Choose the best tool to call."
+    )
+
     return (
         f"Current robot state:\n\n"
         f"DISTANCE SENSORS:\n"
@@ -147,6 +156,6 @@ def build_human_prompt(
         f"{short_term_section}"
         f"{memory_section}"
         f"{rag_section}\n"
-        f"Choose the best tool to call."
+        f"{closing}"
     )
 

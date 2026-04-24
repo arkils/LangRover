@@ -123,9 +123,13 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
         agent: Dict from ``create_agent()``.
         world_state: Current sensor + vision snapshot.
     """
+    import os as _os
     from config import Config
     cfg = Config()
-    mode = cfg.DECISION_MODE.lower()
+    # Read DECISION_MODE from os.environ at call time — Config field defaults are
+    # evaluated once at class-definition (module import) and don't reflect env
+    # vars set later by the UI sidebar.
+    mode = _os.environ.get("DECISION_MODE", cfg.DECISION_MODE).lower()
 
     llm = agent["llm"]
     robot_actions: RobotActions = agent["robot_actions"]
@@ -257,11 +261,14 @@ def decide_and_act(agent: dict, world_state: WorldState) -> None:
             print(f"[CONTEXT] Source: STM ({stm_label}) | LTM: {ltm_label} | RAG: not injected yet (LLM decides)")
 
             # -- Invoke 1: LLM sees sensors + all tools incl. query_knowledge_base
+            # hybrid_mode=True forces the closing instruction to mandate calling
+            # query_knowledge_base before any action tool.
             human_msg = HumanMessage(
                 content=build_human_prompt(
                     world_state, skill_registry,
                     memories=long_term_context,
                     short_term_context=short_term_context,
+                    hybrid_mode=True,
                 )
             )
             messages = [SystemMessage(content=ROBOT_SYSTEM_PROMPT), human_msg]
@@ -350,19 +357,37 @@ def _execute_response(
     tool_calls = getattr(response, "tool_calls", None)
     if tool_calls:
         tool_map = {t.name: t for t in all_tools}
+        skill_registry: SkillRegistry = agent["skill_registry"]
+        detected_names = [o.name.lower() for o in world_state.vision.objects]
+        has_people = world_state.vision.people_count > 0
         last_action = None
         for tc in tool_calls:
             tool_name = tc["name"]
             tool_args = tc.get("args", {})
             matched = tool_map.get(tool_name)
-            if matched:
-                print(f"[ACTION]  >> {tool_name}({tool_args})")
-                matched.invoke(tool_args)
-                _update_heading(agent, tool_name, tool_args)
-                _store_memory(agent, world_state, tool_name)
-                last_action = tool_name
-            else:
+            if not matched:
                 print(f"[WARNING] LLM returned unknown tool '{tool_name}' — skipping")
+                continue
+            # Guard: validate skill tool calls against current detections
+            skill = skill_registry.get(tool_name)
+            if skill is not None:
+                trigger_set = {t.lower() for t in skill.trigger_objects}
+                # Special-case: person skill also fires on people_count
+                person_triggers = {"person"}
+                needs_person = bool(trigger_set & person_triggers)
+                detected_trigger = bool(trigger_set & set(detected_names))
+                if not detected_trigger and not (needs_person and has_people):
+                    print(
+                        f"[GUARD]   Blocked hallucinated skill '{tool_name}' — "
+                        f"trigger objects {sorted(trigger_set)} not in scene "
+                        f"(detected: {detected_names or ['none']})"
+                    )
+                    continue
+            print(f"[ACTION]  >> {tool_name}({tool_args})")
+            matched.invoke(tool_args)
+            _update_heading(agent, tool_name, tool_args)
+            _store_memory(agent, world_state, tool_name)
+            last_action = tool_name
         return last_action
 
     # Text fallback
